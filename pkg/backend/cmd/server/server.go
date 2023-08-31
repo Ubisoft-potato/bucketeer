@@ -35,7 +35,6 @@ import (
 	autoopsapi "github.com/bucketeer-io/bucketeer/pkg/autoops/api"
 	autoopsclient "github.com/bucketeer-io/bucketeer/pkg/autoops/client"
 	"github.com/bucketeer-io/bucketeer/pkg/autoops/webhookhandler"
-	"github.com/bucketeer-io/bucketeer/pkg/cache"
 	cachev3 "github.com/bucketeer-io/bucketeer/pkg/cache/v3"
 	"github.com/bucketeer-io/bucketeer/pkg/cli"
 	"github.com/bucketeer-io/bucketeer/pkg/crypto"
@@ -68,6 +67,7 @@ const (
 	command                       = "server"
 	gcp                           = "gcp"
 	aws                           = "aws"
+	hcv                           = "hcv"
 	autoOpsWebhookPath            = "hook"
 	featureFlagTriggerWebhookPath = "webhook"
 	healthCheckTimeout            = 1 * time.Second
@@ -873,6 +873,12 @@ func (s *server) createCryptoUtil(
 	case aws:
 		// TODO: Get region from command-line flags
 		cryptoUtil, err = crypto.NewAwsKMSCrypto(ctx, *s.webhookKMSResourceName, "ap-northeast-1")
+		if err != nil {
+			return nil, err
+		}
+	case hcv:
+		// when starting backend service in localenv, we use HashiCorp Vault as kms server
+		cryptoUtil, err = crypto.NewHashicorpvaultCrypto(ctx, *s.webhookKMSResourceName, "", "root")
 		if err != nil {
 			return nil, err
 		}
