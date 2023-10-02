@@ -7,6 +7,9 @@ fullnameOverride: "account-apikey-cacher"
 namespace: default
 
 env:
+  gcpEnabled:
+  profile:
+  pubsubEmulatorHost:
   project:
   accountService: localhost:9001
   environmentService: localhost:9001
