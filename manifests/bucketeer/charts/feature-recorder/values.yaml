@@ -7,6 +7,9 @@ fullnameOverride: "feature-recorder"
 namespace: default
 
 env:
+  gcpEnabled:
+  profile:
+  pubsubEmulatorHost:
   project:
   featureService: localhost:9001
   database:
