@@ -8,11 +8,14 @@ namespace: default
 
 env:
   project:
+  profile:
+  gcpEnabled:
   mysqlUser:
   mysqlPass:
   mysqlHost:
   mysqlPort:
-  mysqlDBName:
+  mysqlDbName:
+  pubsubEmulatorHost:
   notificationService: localhost:9001
   environmentService: localhost:9001
   autoOpsService: localhost:9001
@@ -102,6 +105,7 @@ cronjob:
   opsEventCountWatcherSchedule: "* * * * *"
   opsProgressiveRolloutWatcherSchedule: "* * * * *"
   redisCounterDeleterSchedule: "0 0 * * *"
+  domainEventInformerSchedule: "* * * * *"
   experimentCalculatorSchedule: "*/30 * * * *"
   mauSummarizerSchedule: "30 0 * * *"
   mauPartitionDeleterSchedule: "0 2 1 * *"

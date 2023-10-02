@@ -47,6 +47,12 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args: ["apikey-cacher"]
           env:
+            - name: BUCKETEER_ACCOUNT_PROFILE
+              value: "{{.Values.env.profile}}"
+            - name: BUCKETEER_ACCOUNT_GCP_TRACE_ENABLED
+              value: "{{.Values.env.gcpEnabled}}"
+            - name: PUBSUB_EMULATOR_HOST
+              value: "{{.Values.env.pubsubEmulatorHost}}"
             - name: BUCKETEER_ACCOUNT_PROJECT
               value: "{{ .Values.env.project }}"
             - name: BUCKETEER_ACCOUNT_ACCOUNT_SERVICE
