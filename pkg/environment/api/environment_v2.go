@@ -33,8 +33,10 @@ import (
 	eventproto "github.com/bucketeer-io/bucketeer/proto/event/domain"
 )
 
-var environmentNameRegex = regexp.MustCompile("^[A-Za-z0-9-_ ]{1,50}$")
-var environmentUrlCodeRegex = regexp.MustCompile("^[a-z0-9-_.]{1,50}$")
+var (
+	maxEnvironmentNameLength = 50
+	environmentUrlCodeRegex  = regexp.MustCompile("^[a-z0-9-_.]{1,50}$")
+)
 
 func (s *EnvironmentService) GetEnvironmentV2(
 	ctx context.Context,
@@ -226,7 +228,9 @@ func (s *EnvironmentService) CreateEnvironmentV2(
 	if err := s.createEnvironmentV2(ctx, req.Command, newEnvironment, editor, localizer); err != nil {
 		return nil, err
 	}
-	return &environmentproto.CreateEnvironmentV2Response{}, nil
+	return &environmentproto.CreateEnvironmentV2Response{
+		Environment: newEnvironment.EnvironmentV2,
+	}, nil
 }
 
 func validateCreateEnvironmentV2Request(
@@ -244,7 +248,17 @@ func validateCreateEnvironmentV2Request(
 		return dt.Err()
 	}
 	name := strings.TrimSpace(req.Command.Name)
-	if !environmentNameRegex.MatchString(name) {
+	if name == "" {
+		dt, err := statusEnvironmentNameRequired.WithDetails(&errdetails.LocalizedMessage{
+			Locale:  localizer.GetLocale(),
+			Message: localizer.MustLocalizeWithTemplate(locale.RequiredFieldTemplate, "name"),
+		})
+		if err != nil {
+			return statusInternal.Err()
+		}
+		return dt.Err()
+	}
+	if len(name) > maxEnvironmentNameLength {
 		dt, err := statusInvalidEnvironmentName.WithDetails(&errdetails.LocalizedMessage{
 			Locale:  localizer.GetLocale(),
 			Message: localizer.MustLocalizeWithTemplate(locale.InvalidArgumentError, "name"),
@@ -268,6 +282,29 @@ func validateCreateEnvironmentV2Request(
 		dt, err := statusProjectIDRequired.WithDetails(&errdetails.LocalizedMessage{
 			Locale:  localizer.GetLocale(),
 			Message: localizer.MustLocalizeWithTemplate(locale.RequiredFieldTemplate, "project_id"),
+		})
+		if err != nil {
+			return statusInternal.Err()
+		}
+		return dt.Err()
+	}
+	return nil
+}
+
+func (s *EnvironmentService) checkProjectExistence(
+	ctx context.Context,
+	projectID string,
+	localizer locale.Localizer,
+) error {
+	// enabled project must exist
+	existingProject, err := s.getProject(ctx, projectID, localizer)
+	if err != nil {
+		return err
+	}
+	if existingProject.Disabled {
+		dt, err := statusProjectDisabled.WithDetails(&errdetails.LocalizedMessage{
+			Locale:  localizer.GetLocale(),
+			Message: localizer.MustLocalize(locale.ProjectDisabled),
 		})
 		if err != nil {
 			return statusInternal.Err()
@@ -446,7 +483,17 @@ func validateUpdateEnvironmentV2Request(id string, commands []command.Command, l
 	for _, cmd := range commands {
 		if c, ok := cmd.(*environmentproto.RenameEnvironmentV2Command); ok {
 			newName := strings.TrimSpace(c.Name)
-			if !environmentNameRegex.MatchString(newName) {
+			if newName == "" {
+				dt, err := statusEnvironmentNameRequired.WithDetails(&errdetails.LocalizedMessage{
+					Locale:  localizer.GetLocale(),
+					Message: localizer.MustLocalizeWithTemplate(locale.RequiredFieldTemplate, "name"),
+				})
+				if err != nil {
+					return statusInternal.Err()
+				}
+				return dt.Err()
+			}
+			if len(newName) > maxEnvironmentNameLength {
 				dt, err := statusInvalidEnvironmentName.WithDetails(&errdetails.LocalizedMessage{
 					Locale:  localizer.GetLocale(),
 					Message: localizer.MustLocalizeWithTemplate(locale.InvalidArgumentError, "name"),

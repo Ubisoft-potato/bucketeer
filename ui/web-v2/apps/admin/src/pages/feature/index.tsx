@@ -1,4 +1,5 @@
 import { listTags } from '@/modules/tags';
+import { addToast } from '@/modules/toasts';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { unwrapResult } from '@reduxjs/toolkit';
 import React, { useCallback, FC, memo, useEffect, useState } from 'react';
@@ -149,18 +150,23 @@ export const FeatureIndexPage: FC = memo(() => {
     mode: 'onChange',
   });
   const { handleSubmit: handleAddSubmit, reset } = addMethod;
+
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+
   const switchEnabledMethod = useForm({
     resolver: yupResolver(switchEnabledFormSchema),
     defaultValues: {
       featureId: '',
-      enabled: false,
       comment: '',
+      enabled: false,
     },
     mode: 'onChange',
   });
   const {
     handleSubmit: switchEnableHandleSubmit,
     setValue: switchEnabledSetValue,
+    getValues: switchEnabledGetValues,
     reset: switchEnabledReset,
   } = switchEnabledMethod;
   const archiveMethod = useForm({
@@ -226,7 +232,7 @@ export const FeatureIndexPage: FC = memo(() => {
 
       dispatch(
         listFeatures({
-          environmentNamespace: currentEnvironment.namespace,
+          environmentNamespace: currentEnvironment.id,
           pageSize: FEATURE_LIST_PAGE_SIZE,
           cursor: String(cursor),
           tags,
@@ -283,7 +289,7 @@ export const FeatureIndexPage: FC = memo(() => {
   const handleOpen = useCallback(() => {
     setOpen(true);
     history.push({
-      pathname: `${PAGE_PATH_ROOT}${currentEnvironment.id}${PAGE_PATH_FEATURES}${PAGE_PATH_NEW}`,
+      pathname: `${PAGE_PATH_ROOT}${currentEnvironment.urlCode}${PAGE_PATH_FEATURES}${PAGE_PATH_NEW}`,
       search: location.search,
     });
   }, [setOpen, history, location]);
@@ -293,7 +299,7 @@ export const FeatureIndexPage: FC = memo(() => {
     reset();
     cloneReset();
     history.replace({
-      pathname: `${PAGE_PATH_ROOT}${currentEnvironment.id}${PAGE_PATH_FEATURES}`,
+      pathname: `${PAGE_PATH_ROOT}${currentEnvironment.urlCode}${PAGE_PATH_FEATURES}`,
       search: location.search,
     });
   }, [setOpen, history, location, reset]);
@@ -302,7 +308,7 @@ export const FeatureIndexPage: FC = memo(() => {
     async (data) => {
       dispatch(
         createFeature({
-          environmentNamespace: currentEnvironment.namespace,
+          environmentNamespace: currentEnvironment.id,
           id: data.id,
           name: data.name,
           description: data.description,
@@ -321,7 +327,7 @@ export const FeatureIndexPage: FC = memo(() => {
       ).then(() => {
         setOpen(false);
         history.push(
-          `${PAGE_PATH_ROOT}${currentEnvironment.id}${PAGE_PATH_FEATURES}/${data.id}${PAGE_PATH_FEATURE_TARGETING}`
+          `${PAGE_PATH_ROOT}${currentEnvironment.urlCode}${PAGE_PATH_FEATURES}/${data.id}${PAGE_PATH_FEATURE_TARGETING}`
         );
         TagManager.dataLayer({
           dataLayer: {
@@ -351,16 +357,16 @@ export const FeatureIndexPage: FC = memo(() => {
       );
       dispatch(
         cloneFeature({
-          environmentNamespace: currentEnvironment.namespace,
+          environmentNamespace: currentEnvironment.id,
           id: featureId,
-          destinationEnvironmentNamespace: destinationEnvironment.namespace,
+          destinationEnvironmentNamespace: destinationEnvironment.id,
         })
       )
         .then(unwrapResult)
         .then(() => {
           cloneReset();
           history.replace(
-            `${PAGE_PATH_ROOT}${destinationEnvironment.id}${PAGE_PATH_FEATURES}/${featureId}${PAGE_PATH_FEATURE_TARGETING}`
+            `${PAGE_PATH_ROOT}${destinationEnvironment.urlCode}${PAGE_PATH_FEATURES}/${featureId}${PAGE_PATH_FEATURE_TARGETING}`
           );
         })
         .catch(() => {
@@ -385,23 +391,38 @@ export const FeatureIndexPage: FC = memo(() => {
         (() => {
           if (data.enabled) {
             return enableFeature({
-              environmentNamespace: currentEnvironment.namespace,
+              environmentNamespace: currentEnvironment.id,
               id: data.featureId,
               comment: data.comment,
             });
           }
           return disableFeature({
-            environmentNamespace: currentEnvironment.namespace,
+            environmentNamespace: currentEnvironment.id,
             id: data.featureId,
             comment: data.comment,
           });
         })()
       ).then(() => {
+        if (data.enabled) {
+          dispatch(
+            addToast({
+              message: f(messages.feature.successMessages.flagEnabled),
+              severity: 'success',
+            })
+          );
+        } else {
+          dispatch(
+            addToast({
+              message: f(messages.feature.successMessages.flagDisabled),
+              severity: 'success',
+            })
+          );
+        }
         switchEnabledReset();
         setIsSwitchEnableConfirmDialogOpen(false);
         dispatch(
           getFeature({
-            environmentNamespace: currentEnvironment.namespace,
+            environmentNamespace: currentEnvironment.id,
             id: data.featureId,
           })
         );
@@ -424,7 +445,7 @@ export const FeatureIndexPage: FC = memo(() => {
       setOpen(true);
       cloneSetValue('feature', feature);
       history.push({
-        pathname: `${PAGE_PATH_ROOT}${currentEnvironment.id}${PAGE_PATH_FEATURES}${PAGE_PATH_FEATURE_CLONE}/${feature.id}`,
+        pathname: `${PAGE_PATH_ROOT}${currentEnvironment.urlCode}${PAGE_PATH_FEATURES}${PAGE_PATH_FEATURE_CLONE}/${feature.id}`,
         search: location.search,
       });
     },
@@ -436,12 +457,12 @@ export const FeatureIndexPage: FC = memo(() => {
       dispatch(
         data.feature.archived
           ? unarchiveFeature({
-              environmentNamespace: currentEnvironment.namespace,
+              environmentNamespace: currentEnvironment.id,
               id: data.feature.id,
               comment: data.comment,
             })
           : archiveFeature({
-              environmentNamespace: currentEnvironment.namespace,
+              environmentNamespace: currentEnvironment.id,
               id: data.feature.id,
               comment: data.comment,
             })
@@ -449,7 +470,7 @@ export const FeatureIndexPage: FC = memo(() => {
         archiveReset();
         setIsArchiveConfirmDialogOpen(false);
         history.replace(
-          `${PAGE_PATH_ROOT}${currentEnvironment.id}${PAGE_PATH_FEATURES}`
+          `${PAGE_PATH_ROOT}${currentEnvironment.urlCode}${PAGE_PATH_FEATURES}`
         );
         updateFeatureList(null, 1);
       });
@@ -472,7 +493,7 @@ export const FeatureIndexPage: FC = memo(() => {
     if (isClone) {
       dispatch(
         getFeature({
-          environmentNamespace: currentEnvironment.namespace,
+          environmentNamespace: currentEnvironment.id,
           id: featureId,
         })
       ).then((e) => {
@@ -484,7 +505,7 @@ export const FeatureIndexPage: FC = memo(() => {
     }
     dispatch(
       listAccounts({
-        environmentNamespace: currentEnvironment.namespace,
+        environmentNamespace: currentEnvironment.id,
         pageSize: FEATURE_ACCOUNT_PAGE_SIZE,
         cursor: '',
       })
@@ -495,7 +516,7 @@ export const FeatureIndexPage: FC = memo(() => {
     );
     dispatch(
       listTags({
-        environmentNamespace: currentEnvironment.namespace,
+        environmentNamespace: currentEnvironment.id,
         pageSize: 99999,
         cursor: '',
         orderBy: ListTagsRequest.OrderBy.DEFAULT,
@@ -543,45 +564,52 @@ export const FeatureIndexPage: FC = memo(() => {
           </FormProvider>
         )}
       </Overlay>
-      <FormProvider {...switchEnabledMethod}>
-        <FeatureConfirmDialog
-          open={isSwitchEnableConfirmDialogOpen}
-          handleSubmit={switchEnableHandleSubmit(handleSwitchEnabled)}
-          onClose={() => setIsSwitchEnableConfirmDialogOpen(false)}
-          title={f(messages.feature.confirm.title)}
-          description={f(messages.feature.confirm.description)}
-        />
-      </FormProvider>
-      <FormProvider {...archiveMethod}>
-        <FeatureConfirmDialog
-          isArchive={true}
-          featureId={archiveMethod.getValues().feature?.id}
-          feature={archiveMethod.getValues().feature}
-          open={isArchiveConfirmDialogOpen}
-          handleSubmit={archiveHandleSubmit(handleArchive)}
-          onClose={() => setIsArchiveConfirmDialogOpen(false)}
-          title={
-            archiveMethod.getValues().feature &&
-            archiveMethod.getValues().feature.archived
-              ? f(messages.feature.confirm.unarchiveTitle)
-              : f(messages.feature.confirm.archiveTitle)
-          }
-          description={
-            archiveMethod.getValues().feature &&
-            archiveMethod.getValues().feature.archived
-              ? f(messages.feature.confirm.unarchiveDescription, {
-                  featureId:
-                    archiveMethod.getValues().feature &&
-                    archiveMethod.getValues().feature.id,
-                })
-              : f(messages.feature.confirm.archiveDescription, {
-                  featureId:
-                    archiveMethod.getValues().feature &&
-                    archiveMethod.getValues().feature.id,
-                })
-          }
-        />
-      </FormProvider>
+      {isSwitchEnableConfirmDialogOpen && (
+        <FormProvider {...switchEnabledMethod}>
+          <FeatureConfirmDialog
+            featureId={switchEnabledGetValues('featureId')}
+            isSwitchEnabledConfirm={true}
+            isEnabled={!switchEnabledGetValues('enabled')}
+            open={isSwitchEnableConfirmDialogOpen}
+            handleSubmit={switchEnableHandleSubmit(handleSwitchEnabled)}
+            onClose={() => setIsSwitchEnableConfirmDialogOpen(false)}
+            title={f(messages.feature.confirm.title)}
+            description={f(messages.feature.confirm.description)}
+          />
+        </FormProvider>
+      )}
+      {isArchiveConfirmDialogOpen && (
+        <FormProvider {...archiveMethod}>
+          <FeatureConfirmDialog
+            isArchive={true}
+            featureId={archiveMethod.getValues().feature?.id}
+            feature={archiveMethod.getValues().feature}
+            open={isArchiveConfirmDialogOpen}
+            handleSubmit={archiveHandleSubmit(handleArchive)}
+            onClose={() => setIsArchiveConfirmDialogOpen(false)}
+            title={
+              archiveMethod.getValues().feature &&
+              archiveMethod.getValues().feature.archived
+                ? f(messages.feature.confirm.unarchiveTitle)
+                : f(messages.feature.confirm.archiveTitle)
+            }
+            description={
+              archiveMethod.getValues().feature &&
+              archiveMethod.getValues().feature.archived
+                ? f(messages.feature.confirm.unarchiveDescription, {
+                    featureId:
+                      archiveMethod.getValues().feature &&
+                      archiveMethod.getValues().feature.id,
+                  })
+                : f(messages.feature.confirm.archiveDescription, {
+                    featureId:
+                      archiveMethod.getValues().feature &&
+                      archiveMethod.getValues().feature.id,
+                  })
+            }
+          />
+        </FormProvider>
+      )}
     </>
   );
 });

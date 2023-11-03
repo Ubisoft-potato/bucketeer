@@ -10,22 +10,22 @@ var AccountService = (function () {
   return AccountService;
 }());
 
-AccountService.GetMe = {
-  methodName: "GetMe",
+AccountService.GetMeV2 = {
+  methodName: "GetMeV2",
   service: AccountService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_account_service_pb.GetMeRequest,
-  responseType: proto_account_service_pb.GetMeResponse
+  requestType: proto_account_service_pb.GetMeV2Request,
+  responseType: proto_account_service_pb.GetMeV2Response
 };
 
-AccountService.GetMeByEmail = {
-  methodName: "GetMeByEmail",
+AccountService.GetMeByEmailV2 = {
+  methodName: "GetMeByEmailV2",
   service: AccountService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_account_service_pb.GetMeByEmailRequest,
-  responseType: proto_account_service_pb.GetMeResponse
+  requestType: proto_account_service_pb.GetMeByEmailV2Request,
+  responseType: proto_account_service_pb.GetMeV2Response
 };
 
 AccountService.CreateAdminAccount = {
@@ -206,11 +206,11 @@ function AccountServiceClient(serviceHost, options) {
   this.options = options || {};
 }
 
-AccountServiceClient.prototype.getMe = function getMe(requestMessage, metadata, callback) {
+AccountServiceClient.prototype.getMeV2 = function getMeV2(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(AccountService.GetMe, {
+  var client = grpc.unary(AccountService.GetMeV2, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -237,11 +237,11 @@ AccountServiceClient.prototype.getMe = function getMe(requestMessage, metadata, 
   };
 };
 
-AccountServiceClient.prototype.getMeByEmail = function getMeByEmail(requestMessage, metadata, callback) {
+AccountServiceClient.prototype.getMeByEmailV2 = function getMeByEmailV2(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(AccountService.GetMeByEmail, {
+  var client = grpc.unary(AccountService.GetMeByEmailV2, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

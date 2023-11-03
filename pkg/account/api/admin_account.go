@@ -35,10 +35,10 @@ import (
 	eventproto "github.com/bucketeer-io/bucketeer/proto/event/domain"
 )
 
-func (s *AccountService) GetMe(
+func (s *AccountService) GetMeV2(
 	ctx context.Context,
-	req *accountproto.GetMeRequest,
-) (*accountproto.GetMeResponse, error) {
+	req *accountproto.GetMeV2Request,
+) (*accountproto.GetMeV2Response, error) {
 	localizer := locale.NewLocalizer(ctx)
 	t, ok := rpc.GetIDToken(ctx)
 	if !ok {
@@ -65,13 +65,13 @@ func (s *AccountService) GetMe(
 		}
 		return nil, dt.Err()
 	}
-	return s.getMe(ctx, t.Email, localizer)
+	return s.getMeV2(ctx, t.Email, localizer)
 }
 
-func (s *AccountService) GetMeByEmail(
+func (s *AccountService) GetMeByEmailV2(
 	ctx context.Context,
-	req *accountproto.GetMeByEmailRequest,
-) (*accountproto.GetMeResponse, error) {
+	req *accountproto.GetMeByEmailV2Request,
+) (*accountproto.GetMeV2Response, error) {
 	localizer := locale.NewLocalizer(ctx)
 	_, err := s.checkAdminRole(ctx, localizer)
 	if err != nil {
@@ -91,14 +91,14 @@ func (s *AccountService) GetMeByEmail(
 		}
 		return nil, dt.Err()
 	}
-	return s.getMe(ctx, req.Email, localizer)
+	return s.getMeV2(ctx, req.Email, localizer)
 }
 
-func (s *AccountService) getMe(
+func (s *AccountService) getMeV2(
 	ctx context.Context,
 	email string,
 	localizer locale.Localizer,
-) (*accountproto.GetMeResponse, error) {
+) (*accountproto.GetMeV2Response, error) {
 	projects, err := s.listProjects(ctx)
 	if err != nil {
 		s.logger.Error(
@@ -163,50 +163,47 @@ func (s *AccountService) getMe(
 		return nil, err
 	}
 	if adminAccount != nil && !adminAccount.Disabled && !adminAccount.Deleted {
-		environmentRoles, err := s.makeAdminEnvironmentRoles(projects, environments, accountproto.Account_OWNER, localizer)
+		environmentRoles, err := s.makeAdminEnvironmentRolesV2(
+			projects,
+			environments,
+			accountproto.Account_OWNER,
+			localizer,
+		)
 		if err != nil {
 			return nil, err
 		}
-		return &accountproto.GetMeResponse{
-			Account:          adminAccount.Account,
+		return &accountproto.GetMeV2Response{
 			Email:            adminAccount.Email,
 			IsAdmin:          true,
-			AdminRole:        accountproto.Account_OWNER,
-			Disabled:         false,
 			EnvironmentRoles: environmentRoles,
-			Deleted:          false,
 		}, nil
 	}
 	// environment account response
-	environmentRoles, account, err := s.makeEnvironmentRoles(ctx, email, projects, environments, localizer)
+	environmentRoles, err := s.makeEnvironmentRolesV2(ctx, email, projects, environments, localizer)
 	if err != nil {
 		return nil, err
 	}
-	return &accountproto.GetMeResponse{
-		Account:          account,
+	return &accountproto.GetMeV2Response{
 		Email:            email,
 		IsAdmin:          false,
-		AdminRole:        accountproto.Account_UNASSIGNED,
-		Disabled:         false,
 		EnvironmentRoles: environmentRoles,
-		Deleted:          false,
 	}, nil
 }
 
-func (s *AccountService) makeAdminEnvironmentRoles(
+func (s *AccountService) makeAdminEnvironmentRolesV2(
 	projects []*environmentproto.Project,
 	environments []*environmentproto.EnvironmentV2,
 	adminRole accountproto.Account_Role,
 	localizer locale.Localizer,
-) ([]*accountproto.EnvironmentRole, error) {
+) ([]*accountproto.EnvironmentRoleV2, error) {
 	projectSet := s.makeProjectSet(projects)
-	environmentRoles := make([]*accountproto.EnvironmentRole, 0)
+	environmentRoles := make([]*accountproto.EnvironmentRoleV2, 0)
 	for _, e := range environments {
 		p, ok := projectSet[e.ProjectId]
 		if !ok || p.Disabled {
 			continue
 		}
-		er := &accountproto.EnvironmentRole{Environment: convertEnvironmentV2ToV1(e), Role: adminRole}
+		er := &accountproto.EnvironmentRoleV2{Environment: e, Role: adminRole}
 		if p.Trial {
 			er.TrialProject = true
 			er.TrialStartedAt = p.CreatedAt
@@ -226,17 +223,15 @@ func (s *AccountService) makeAdminEnvironmentRoles(
 	return environmentRoles, nil
 }
 
-// FIXME: remove *accountproto.Account response after WebUI supports environment feature and removes the dependency
-func (s *AccountService) makeEnvironmentRoles(
+func (s *AccountService) makeEnvironmentRolesV2(
 	ctx context.Context,
 	email string,
 	projects []*environmentproto.Project,
 	environments []*environmentproto.EnvironmentV2,
 	localizer locale.Localizer,
-) ([]*accountproto.EnvironmentRole, *accountproto.Account, error) {
+) ([]*accountproto.EnvironmentRoleV2, error) {
 	projectSet := s.makeProjectSet(projects)
-	var lastAccount *accountproto.Account
-	environmentRoles := make([]*accountproto.EnvironmentRole, 0, len(environments))
+	environmentRoles := make([]*accountproto.EnvironmentRoleV2, 0, len(environments))
 	for _, e := range environments {
 		p, ok := projectSet[e.ProjectId]
 		if !ok || p.Disabled {
@@ -244,13 +239,12 @@ func (s *AccountService) makeEnvironmentRoles(
 		}
 		account, err := s.getAccount(ctx, email, e.Id, localizer)
 		if err != nil && status.Code(err) != codes.NotFound {
-			return nil, nil, err
+			return nil, err
 		}
 		if account == nil || account.Disabled || account.Deleted {
 			continue
 		}
-		lastAccount = account.Account
-		er := &accountproto.EnvironmentRole{Environment: convertEnvironmentV2ToV1(e), Role: account.Role}
+		er := &accountproto.EnvironmentRoleV2{Environment: e, Role: account.Role}
 		if p.Trial {
 			er.TrialProject = true
 			er.TrialStartedAt = p.CreatedAt
@@ -263,11 +257,11 @@ func (s *AccountService) makeEnvironmentRoles(
 			Message: localizer.MustLocalize(locale.NotFoundError),
 		})
 		if err != nil {
-			return nil, nil, statusInternal.Err()
+			return nil, statusInternal.Err()
 		}
-		return nil, nil, dt.Err()
+		return nil, dt.Err()
 	}
-	return environmentRoles, lastAccount, nil
+	return environmentRoles, nil
 }
 
 func (s *AccountService) CreateAdminAccount(
@@ -792,17 +786,4 @@ func (s *AccountService) newAdminAccountListOrders(
 		direction = mysql.OrderDirectionDesc
 	}
 	return []*mysql.Order{mysql.NewOrder(column, direction)}, nil
-}
-
-func convertEnvironmentV2ToV1(v2 *environmentproto.EnvironmentV2) *environmentproto.Environment {
-	return &environmentproto.Environment{
-		Id:          v2.UrlCode,
-		Namespace:   v2.Id,
-		Name:        v2.Name,
-		Description: v2.Description,
-		Deleted:     v2.Archived,
-		UpdatedAt:   v2.UpdatedAt,
-		CreatedAt:   v2.CreatedAt,
-		ProjectId:   v2.ProjectId,
-	}
 }

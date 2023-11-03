@@ -19,6 +19,7 @@ env:
   experimentService: localhost:9001
   eventCounterService: localhost:9001
   featureService: localhost:9001
+  experimentCalculatorService: localhost:9001
   webURL:
   logLevel: info
   port: 9090
@@ -98,4 +99,7 @@ cronjob:
   mauCountWatcherSchedule: "0 1 1 * *"
   opsDatetimeWatcherSchedule: "* * * * *"
   opsEventCountWatcherSchedule: "* * * * *"
+  opsProgressiveRolloutWatcherSchedule: "* * * * *"
   redisCounterDeleterSchedule: "0 0 * * *"
+  experimentCalculatorSchedule: "*/30 * * * *"
+  mauSummarizerSchedule: "30 0 * * *"

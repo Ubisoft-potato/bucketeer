@@ -86,12 +86,15 @@ func (w *evalEvtWriter) Write(
 				if err != nil {
 					// If there is nothing to link, we don't report it as an error
 					handledCounter.WithLabelValues(codeNoLink).Inc()
-					if err == ErrNoExperiments || err == ErrExperimentNotFound {
+					if err == ErrNoExperiments ||
+						err == ErrExperimentNotFound ||
+						err == ErrGoalEventIssuedAfterExperimentEnded {
 						w.logger.Debug(
 							"There is no experiment to link",
 							zap.Error(err),
 							zap.String("id", id),
 							zap.String("environmentNamespace", environmentNamespace),
+							zap.Any("evalEvent", evt),
 						)
 						continue
 					}
@@ -101,6 +104,7 @@ func (w *evalEvtWriter) Write(
 							zap.Error(err),
 							zap.String("id", id),
 							zap.String("environmentNamespace", environmentNamespace),
+							zap.Any("evalEvent", evt),
 						)
 					}
 					fails[id] = retriable
@@ -113,6 +117,7 @@ func (w *evalEvtWriter) Write(
 					"The event is an unexpected message type",
 					zap.String("id", id),
 					zap.String("environmentNamespace", environmentNamespace),
+					zap.Any("evalEvent", evt),
 				)
 				fails[id] = false
 			}
@@ -126,8 +131,22 @@ func (w *evalEvtWriter) Write(
 			zap.Error(err),
 		)
 	}
+	failedToAppendMap := make(map[string]*epproto.EvaluationEvent)
 	for id, f := range fs {
+		// To log which event has failed to append in the BigQuery, we need to find the event
+		for _, ee := range evalEvents {
+			if id == ee.Id {
+				failedToAppendMap[id] = ee
+			}
+		}
+		// Update the fails map
 		fails[id] = f
+	}
+	if len(failedToAppendMap) > 0 {
+		w.logger.Error(
+			"failed to append rows in the bigquery",
+			zap.Any("goalEvents", failedToAppendMap),
+		)
 	}
 	return fails
 }
@@ -139,26 +158,39 @@ func (w *evalEvtWriter) convToEvaluationEvent(
 ) (*epproto.EvaluationEvent, bool, error) {
 	experiments, err := w.listExperiments(ctx, environmentNamespace)
 	if err != nil {
+		w.logger.Error("failed to list experiments",
+			zap.Error(err),
+			zap.String("environmentNamespace", environmentNamespace),
+			zap.Any("evalEvent", e),
+		)
 		return nil, true, err
 	}
 	if len(experiments) == 0 {
 		return nil, false, ErrNoExperiments
 	}
-	exist := w.existExperiment(experiments, e.FeatureId, e.FeatureVersion)
-	if !exist {
+	exp := w.existExperiment(experiments, e.FeatureId, e.FeatureVersion)
+	if exp == nil {
 		return nil, false, ErrExperimentNotFound
+	}
+	if exp.StopAt < e.Timestamp {
+		handledCounter.WithLabelValues(codeEventIssuedAfterExperimentEnded).Inc()
+		return nil, false, ErrGoalEventIssuedAfterExperimentEnded
 	}
 	var ud []byte
 	if e.User != nil {
 		var err error
-		ud, err = json.Marshal(e.User.Data)
+		userData := make(map[string]string)
+		if e.User.Data != nil {
+			userData = e.User.Data
+		}
+		ud, err = json.Marshal(userData)
 		if err != nil {
 			return nil, false, err
 		}
 	}
 	tag := e.Tag
 	if tag == "" {
-		// For requests with no tag, it will insert "none" instead, until all old SDK clients are updated
+		// Tag is optional, so we insert none when is empty.
 		tag = "none"
 	}
 	return &epproto.EvaluationEvent{
@@ -180,13 +212,13 @@ func (w *evalEvtWriter) existExperiment(
 	es []*exproto.Experiment,
 	fID string,
 	fVersion int32,
-) bool {
+) *exproto.Experiment {
 	for _, e := range es {
 		if e.FeatureId == fID && e.FeatureVersion == fVersion {
-			return true
+			return e
 		}
 	}
-	return false
+	return nil
 }
 
 func (w *evalEvtWriter) listExperiments(

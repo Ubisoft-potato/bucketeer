@@ -369,44 +369,44 @@ func (mr *MockClientMockRecorder) GetAdminAccount(ctx, in interface{}, opts ...i
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAdminAccount", reflect.TypeOf((*MockClient)(nil).GetAdminAccount), varargs...)
 }
 
-// GetMe mocks base method.
-func (m *MockClient) GetMe(ctx context.Context, in *account.GetMeRequest, opts ...grpc.CallOption) (*account.GetMeResponse, error) {
+// GetMeByEmailV2 mocks base method.
+func (m *MockClient) GetMeByEmailV2(ctx context.Context, in *account.GetMeByEmailV2Request, opts ...grpc.CallOption) (*account.GetMeV2Response, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "GetMe", varargs...)
-	ret0, _ := ret[0].(*account.GetMeResponse)
+	ret := m.ctrl.Call(m, "GetMeByEmailV2", varargs...)
+	ret0, _ := ret[0].(*account.GetMeV2Response)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetMe indicates an expected call of GetMe.
-func (mr *MockClientMockRecorder) GetMe(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+// GetMeByEmailV2 indicates an expected call of GetMeByEmailV2.
+func (mr *MockClientMockRecorder) GetMeByEmailV2(ctx, in interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMe", reflect.TypeOf((*MockClient)(nil).GetMe), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMeByEmailV2", reflect.TypeOf((*MockClient)(nil).GetMeByEmailV2), varargs...)
 }
 
-// GetMeByEmail mocks base method.
-func (m *MockClient) GetMeByEmail(ctx context.Context, in *account.GetMeByEmailRequest, opts ...grpc.CallOption) (*account.GetMeResponse, error) {
+// GetMeV2 mocks base method.
+func (m *MockClient) GetMeV2(ctx context.Context, in *account.GetMeV2Request, opts ...grpc.CallOption) (*account.GetMeV2Response, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "GetMeByEmail", varargs...)
-	ret0, _ := ret[0].(*account.GetMeResponse)
+	ret := m.ctrl.Call(m, "GetMeV2", varargs...)
+	ret0, _ := ret[0].(*account.GetMeV2Response)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetMeByEmail indicates an expected call of GetMeByEmail.
-func (mr *MockClientMockRecorder) GetMeByEmail(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+// GetMeV2 indicates an expected call of GetMeV2.
+func (mr *MockClientMockRecorder) GetMeV2(ctx, in interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMeByEmail", reflect.TypeOf((*MockClient)(nil).GetMeByEmail), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMeV2", reflect.TypeOf((*MockClient)(nil).GetMeV2), varargs...)
 }
 
 // ListAPIKeys mocks base method.

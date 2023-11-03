@@ -30,6 +30,7 @@ import (
 	gstatus "google.golang.org/grpc/status"
 
 	acmock "github.com/bucketeer-io/bucketeer/pkg/account/client/mock"
+	"github.com/bucketeer-io/bucketeer/pkg/environment/domain"
 	v2es "github.com/bucketeer-io/bucketeer/pkg/environment/storage/v2"
 	"github.com/bucketeer-io/bucketeer/pkg/locale"
 	"github.com/bucketeer-io/bucketeer/pkg/storage/v2/mysql"
@@ -43,7 +44,7 @@ func TestGetProjectMySQL(t *testing.T) {
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
 
-	ctx := context.TODO()
+	ctx := createContextWithToken(t)
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -113,7 +114,7 @@ func TestGetProjectMySQL(t *testing.T) {
 				p.setup(s)
 			}
 			req := &proto.GetProjectRequest{Id: p.id}
-			resp, err := s.GetProject(createContextWithToken(t), req)
+			resp, err := s.GetProject(ctx, req)
 			assert.Equal(t, p.expectedErr, err)
 			if err == nil {
 				assert.NotNil(t, resp)
@@ -126,7 +127,7 @@ func TestListProjectsMySQL(t *testing.T) {
 	t.Parallel()
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
-	ctx := context.TODO()
+	ctx := createContextWithToken(t)
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -192,7 +193,7 @@ func TestListProjectsMySQL(t *testing.T) {
 			if p.setup != nil {
 				p.setup(s)
 			}
-			actual, err := s.ListProjects(createContextWithToken(t), p.input)
+			actual, err := s.ListProjects(ctx, p.input)
 			assert.Equal(t, p.expectedErr, err)
 			assert.Equal(t, p.expected, actual)
 		})
@@ -204,7 +205,7 @@ func TestCreateProjectMySQL(t *testing.T) {
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
 
-	ctx := context.TODO()
+	ctx := createContextWithToken(t)
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -218,10 +219,20 @@ func TestCreateProjectMySQL(t *testing.T) {
 		return st.Err()
 	}
 
+	projExpected, err := domain.NewProject(
+		"name",
+		"url-code",
+		"description",
+		"email",
+		false,
+	)
+	require.NoError(t, err)
+
 	patterns := []struct {
 		desc        string
 		setup       func(*EnvironmentService)
 		req         *proto.CreateProjectRequest
+		expected    *proto.Project
 		expectedErr error
 	}{
 		{
@@ -238,7 +249,7 @@ func TestCreateProjectMySQL(t *testing.T) {
 			req: &proto.CreateProjectRequest{
 				Command: &proto.CreateProjectCommand{Name: ""},
 			},
-			expectedErr: createError(statusInvalidProjectName, localizer.MustLocalizeWithTemplate(locale.InvalidArgumentError, "name")),
+			expectedErr: createError(statusProjectNameRequired, localizer.MustLocalizeWithTemplate(locale.RequiredFieldTemplate, "name")),
 		},
 		{
 			desc:  "err: ErrInvalidProjectName: only space",
@@ -246,7 +257,7 @@ func TestCreateProjectMySQL(t *testing.T) {
 			req: &proto.CreateProjectRequest{
 				Command: &proto.CreateProjectCommand{Name: "    "},
 			},
-			expectedErr: createError(statusInvalidProjectName, localizer.MustLocalizeWithTemplate(locale.InvalidArgumentError, "name")),
+			expectedErr: createError(statusProjectNameRequired, localizer.MustLocalizeWithTemplate(locale.RequiredFieldTemplate, "name")),
 		},
 		{
 			desc:  "err: ErrInvalidProjectName: max name length exceeded",
@@ -281,7 +292,7 @@ func TestCreateProjectMySQL(t *testing.T) {
 				).Return(v2es.ErrProjectAlreadyExists)
 			},
 			req: &proto.CreateProjectRequest{
-				Command: &proto.CreateProjectCommand{Name: "id-0"},
+				Command: &proto.CreateProjectCommand{Name: "id-0", UrlCode: "id-0"},
 			},
 			expectedErr: createError(statusProjectAlreadyExists, localizer.MustLocalize(locale.AlreadyExistsError)),
 		},
@@ -294,7 +305,7 @@ func TestCreateProjectMySQL(t *testing.T) {
 				).Return(errors.New("error"))
 			},
 			req: &proto.CreateProjectRequest{
-				Command: &proto.CreateProjectCommand{Name: "id-1"},
+				Command: &proto.CreateProjectCommand{Name: "id-1", UrlCode: "id-1"},
 			},
 			expectedErr: createError(statusInternal, localizer.MustLocalize(locale.InternalServerError)),
 		},
@@ -307,19 +318,34 @@ func TestCreateProjectMySQL(t *testing.T) {
 				).Return(nil)
 			},
 			req: &proto.CreateProjectRequest{
-				Command: &proto.CreateProjectCommand{Name: "Project Name-001"},
+				Command: &proto.CreateProjectCommand{
+					Name:        projExpected.Name,
+					UrlCode:     projExpected.UrlCode,
+					Description: projExpected.Description,
+				},
 			},
+			expected:    projExpected.Project,
 			expectedErr: nil,
 		},
 	}
 	for _, p := range patterns {
 		t.Run(p.desc, func(t *testing.T) {
-			ctx := createContextWithToken(t)
 			service := newEnvironmentService(t, mockController, nil)
 			if p.setup != nil {
 				p.setup(service)
 			}
-			_, err := service.CreateProject(ctx, p.req)
+			resp, err := service.CreateProject(ctx, p.req)
+			if resp != nil {
+				assert.True(t, len(resp.Project.Name) > 0)
+				assert.Equal(t, p.expected.Name, resp.Project.Name)
+				assert.Equal(t, p.expected.UrlCode, resp.Project.UrlCode)
+				assert.Equal(t, p.expected.Description, resp.Project.Description)
+				assert.Equal(t, p.expected.CreatorEmail, resp.Project.CreatorEmail)
+				assert.True(t, resp.Project.CreatedAt > 0)
+				assert.True(t, resp.Project.UpdatedAt > 0)
+				assert.Equal(t, p.expected.Disabled, resp.Project.Disabled)
+				assert.Equal(t, p.expected.Trial, resp.Project.Trial)
+			}
 			assert.Equal(t, p.expectedErr, err)
 		})
 	}
@@ -330,7 +356,7 @@ func TestCreateTrialProjectMySQL(t *testing.T) {
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
 
-	ctx := context.TODO()
+	ctx := createContextWithToken(t)
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -364,7 +390,7 @@ func TestCreateTrialProjectMySQL(t *testing.T) {
 			req: &proto.CreateTrialProjectRequest{
 				Command: &proto.CreateTrialProjectCommand{Name: ""},
 			},
-			expectedErr: createError(statusInvalidProjectName, localizer.MustLocalizeWithTemplate(locale.InvalidArgumentError, "name")),
+			expectedErr: createError(statusProjectNameRequired, localizer.MustLocalizeWithTemplate(locale.RequiredFieldTemplate, "name")),
 		},
 		{
 			desc:  "err: ErrInvalidProjectName: only space",
@@ -372,7 +398,7 @@ func TestCreateTrialProjectMySQL(t *testing.T) {
 			req: &proto.CreateTrialProjectRequest{
 				Command: &proto.CreateTrialProjectCommand{Name: "   "},
 			},
-			expectedErr: createError(statusInvalidProjectName, localizer.MustLocalizeWithTemplate(locale.InvalidArgumentError, "name")),
+			expectedErr: createError(statusProjectNameRequired, localizer.MustLocalizeWithTemplate(locale.RequiredFieldTemplate, "name")),
 		},
 		{
 			desc:  "err: ErrInvalidProjectName: max id length exceeded",
@@ -460,10 +486,10 @@ func TestCreateTrialProjectMySQL(t *testing.T) {
 				s.mysqlClient.(*mysqlmock.MockClient).EXPECT().QueryRowContext(
 					gomock.Any(), gomock.Any(), gomock.Any(),
 				).Return(row)
-				s.mysqlClient.(*mysqlmock.MockClient).EXPECT().BeginTx(gomock.Any()).Return(nil, nil).Times(7)
+				s.mysqlClient.(*mysqlmock.MockClient).EXPECT().BeginTx(gomock.Any()).Return(nil, nil).Times(4)
 				s.mysqlClient.(*mysqlmock.MockClient).EXPECT().RunInTransaction(
 					gomock.Any(), gomock.Any(), gomock.Any(),
-				).Return(nil).Times(7)
+				).Return(nil).Times(4)
 				s.accountClient.(*acmock.MockClient).EXPECT().GetAdminAccount(gomock.Any(), gomock.Any()).Return(
 					nil, status.Error(codes.NotFound, "not found"))
 				s.accountClient.(*acmock.MockClient).EXPECT().CreateAccount(gomock.Any(), gomock.Any()).Return(
@@ -477,7 +503,6 @@ func TestCreateTrialProjectMySQL(t *testing.T) {
 	}
 	for _, p := range patterns {
 		t.Run(p.desc, func(t *testing.T) {
-			ctx := createContextWithToken(t)
 			service := newEnvironmentService(t, mockController, nil)
 			if p.setup != nil {
 				p.setup(service)
@@ -493,7 +518,7 @@ func TestUpdateProjectMySQL(t *testing.T) {
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
 
-	ctx := context.TODO()
+	ctx := createContextWithToken(t)
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -583,7 +608,6 @@ func TestUpdateProjectMySQL(t *testing.T) {
 	}
 	for _, p := range patterns {
 		t.Run(p.desc, func(t *testing.T) {
-			ctx := createContextWithToken(t)
 			service := newEnvironmentService(t, mockController, nil)
 			if p.setup != nil {
 				p.setup(service)
@@ -599,7 +623,7 @@ func TestEnableProjectMySQL(t *testing.T) {
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
 
-	ctx := context.TODO()
+	ctx := createContextWithToken(t)
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -680,7 +704,6 @@ func TestEnableProjectMySQL(t *testing.T) {
 	}
 	for _, p := range patterns {
 		t.Run(p.desc, func(t *testing.T) {
-			ctx := createContextWithToken(t)
 			service := newEnvironmentService(t, mockController, nil)
 			if p.setup != nil {
 				p.setup(service)
@@ -696,7 +719,7 @@ func TestDisableProjectMySQL(t *testing.T) {
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
 
-	ctx := context.TODO()
+	ctx := createContextWithToken(t)
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -777,7 +800,6 @@ func TestDisableProjectMySQL(t *testing.T) {
 	}
 	for _, p := range patterns {
 		t.Run(p.desc, func(t *testing.T) {
-			ctx := createContextWithToken(t)
 			service := newEnvironmentService(t, mockController, nil)
 			if p.setup != nil {
 				p.setup(service)
@@ -793,7 +815,7 @@ func TestConvertTrialProjectMySQL(t *testing.T) {
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
 
-	ctx := context.TODO()
+	ctx := createContextWithToken(t)
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -874,7 +896,6 @@ func TestConvertTrialProjectMySQL(t *testing.T) {
 	}
 	for _, p := range patterns {
 		t.Run(p.desc, func(t *testing.T) {
-			ctx := createContextWithToken(t)
 			service := newEnvironmentService(t, mockController, nil)
 			if p.setup != nil {
 				p.setup(service)
@@ -889,7 +910,7 @@ func TestProjectPermissionDeniedMySQL(t *testing.T) {
 	t.Parallel()
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
-	ctx := context.TODO()
+	ctx := createContextWithTokenRoleUnassigned(t)
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -951,7 +972,6 @@ func TestProjectPermissionDeniedMySQL(t *testing.T) {
 	}
 	for _, p := range patterns {
 		t.Run(p.desc, func(t *testing.T) {
-			ctx := createContextWithTokenRoleUnassigned(t)
 			service := newEnvironmentService(t, mockController, nil)
 			actual := p.action(ctx, service)
 			assert.Equal(t, p.expected, actual)

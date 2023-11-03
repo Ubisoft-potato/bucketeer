@@ -21,6 +21,8 @@ var global =
     (function () { return this; }).call(null) ||
     Function('return this')();
 
+var proto_experiment_experiment_pb = require('../../proto/experiment/experiment_pb.js');
+goog.object.extend(proto, proto_experiment_experiment_pb);
 goog.exportSymbol('proto.bucketeer.experimentcalculator.BatchCalcRequest', null, global);
 goog.exportSymbol('proto.bucketeer.experimentcalculator.BatchCalcResponse', null, global);
 /**
@@ -97,7 +99,8 @@ proto.bucketeer.experimentcalculator.BatchCalcRequest.prototype.toObject = funct
  */
 proto.bucketeer.experimentcalculator.BatchCalcRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-
+    environmentId: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    experiment: (f = msg.getExperiment()) && proto_experiment_experiment_pb.Experiment.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -134,6 +137,15 @@ proto.bucketeer.experimentcalculator.BatchCalcRequest.deserializeBinaryFromReade
     }
     var field = reader.getFieldNumber();
     switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setEnvironmentId(value);
+      break;
+    case 2:
+      var value = new proto_experiment_experiment_pb.Experiment;
+      reader.readMessage(value,proto_experiment_experiment_pb.Experiment.deserializeBinaryFromReader);
+      msg.setExperiment(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -163,6 +175,76 @@ proto.bucketeer.experimentcalculator.BatchCalcRequest.prototype.serializeBinary 
  */
 proto.bucketeer.experimentcalculator.BatchCalcRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
+  f = message.getEnvironmentId();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+  f = message.getExperiment();
+  if (f != null) {
+    writer.writeMessage(
+      2,
+      f,
+      proto_experiment_experiment_pb.Experiment.serializeBinaryToWriter
+    );
+  }
+};
+
+
+/**
+ * optional string environment_id = 1;
+ * @return {string}
+ */
+proto.bucketeer.experimentcalculator.BatchCalcRequest.prototype.getEnvironmentId = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.bucketeer.experimentcalculator.BatchCalcRequest} returns this
+ */
+proto.bucketeer.experimentcalculator.BatchCalcRequest.prototype.setEnvironmentId = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+/**
+ * optional bucketeer.experiment.Experiment experiment = 2;
+ * @return {?proto.bucketeer.experiment.Experiment}
+ */
+proto.bucketeer.experimentcalculator.BatchCalcRequest.prototype.getExperiment = function() {
+  return /** @type{?proto.bucketeer.experiment.Experiment} */ (
+    jspb.Message.getWrapperField(this, proto_experiment_experiment_pb.Experiment, 2));
+};
+
+
+/**
+ * @param {?proto.bucketeer.experiment.Experiment|undefined} value
+ * @return {!proto.bucketeer.experimentcalculator.BatchCalcRequest} returns this
+*/
+proto.bucketeer.experimentcalculator.BatchCalcRequest.prototype.setExperiment = function(value) {
+  return jspb.Message.setWrapperField(this, 2, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.bucketeer.experimentcalculator.BatchCalcRequest} returns this
+ */
+proto.bucketeer.experimentcalculator.BatchCalcRequest.prototype.clearExperiment = function() {
+  return this.setExperiment(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.bucketeer.experimentcalculator.BatchCalcRequest.prototype.hasExperiment = function() {
+  return jspb.Message.getField(this, 2) != null;
 };
 
 

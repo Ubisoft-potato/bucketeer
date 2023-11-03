@@ -98,6 +98,7 @@ func (w *goalEvtWriter) Write(
 							zap.Error(err),
 							zap.String("id", id),
 							zap.String("environmentNamespace", environmentNamespace),
+							zap.Any("goalEvent", evt),
 						)
 						continue
 					}
@@ -107,6 +108,7 @@ func (w *goalEvtWriter) Write(
 							zap.Error(err),
 							zap.String("id", id),
 							zap.String("environmentNamespace", environmentNamespace),
+							zap.Any("goalEvent", evt),
 						)
 					}
 					fails[id] = retriable
@@ -119,6 +121,7 @@ func (w *goalEvtWriter) Write(
 					"The event is an unexpected message type",
 					zap.String("id", id),
 					zap.String("environmentNamespace", environmentNamespace),
+					zap.Any("goalEvent", evt),
 				)
 				fails[id] = false
 			}
@@ -132,8 +135,22 @@ func (w *goalEvtWriter) Write(
 			zap.Error(err),
 		)
 	}
+	failedToAppendMap := make(map[string]*epproto.GoalEvent)
 	for id, f := range fs {
+		// To log which event has failed to append in the BigQuery, we need to find the event
+		for _, ge := range goalEvents {
+			if id == ge.Id {
+				failedToAppendMap[id] = ge
+			}
+		}
+		// Update the fails map
 		fails[id] = f
+	}
+	if len(failedToAppendMap) > 0 {
+		w.logger.Error(
+			"failed to append rows in the bigquery",
+			zap.Any("goalEvents", failedToAppendMap),
+		)
 	}
 	return fails
 }
@@ -168,14 +185,18 @@ func (w *goalEvtWriter) convToGoalEvent(
 	var ud []byte
 	if e.User != nil {
 		var err error
-		ud, err = json.Marshal(e.User.Data)
+		userData := make(map[string]string)
+		if e.User.Data != nil {
+			userData = e.User.Data
+		}
+		ud, err = json.Marshal(userData)
 		if err != nil {
 			return nil, false, err
 		}
 	}
-	reason := ""
-	if eval.Reason != nil {
-		reason = eval.Reason.Type.String()
+	if tag == "" {
+		// Tag is optional, so we insert none when is empty.
+		tag = "none"
 	}
 	return &epproto.GoalEvent{
 		Id:                   id,
@@ -190,7 +211,7 @@ func (w *goalEvtWriter) convToGoalEvent(
 		FeatureId:            eval.FeatureId,
 		FeatureVersion:       eval.FeatureVersion,
 		VariationId:          eval.VariationId,
-		Reason:               reason,
+		Reason:               eval.Reason.Type.String(),
 	}, false, nil
 }
 
@@ -215,6 +236,11 @@ func (w *goalEvtWriter) linkGoalEventByExperiment(
 	// List experiments
 	experiments, err := w.listExperiments(ctx, environmentNamespace)
 	if err != nil {
+		w.logger.Error("failed to list experiments",
+			zap.Error(err),
+			zap.String("environmentNamespace", environmentNamespace),
+			zap.Any("goalEvent", event),
+		)
 		return nil, true, err
 	}
 	if len(experiments) == 0 {
@@ -230,7 +256,13 @@ func (w *goalEvtWriter) linkGoalEventByExperiment(
 			// If the goal event was issued before the experiment started running,
 			// we ignore those events to avoid issues in the conversion rate
 			if exp.StartAt > event.Timestamp {
-				handledCounter.WithLabelValues(codeGoalEventOlderThanExperiment).Inc()
+				handledCounter.WithLabelValues(codeEventOlderThanExperiment).Inc()
+				continue
+			}
+			// If the goal event was issued after the experiment ended,
+			// we ignore those events to avoid issues in the conversion rate
+			if exp.StopAt < event.Timestamp {
+				handledCounter.WithLabelValues(codeGoalEventIssuedAfterExperimentEnded).Inc()
 				continue
 			}
 			exps = append(exps, exp)
@@ -252,8 +284,18 @@ func (w *goalEvtWriter) linkGoalEventByExperiment(
 		)
 		if err != nil {
 			if err == ErrEvaluationsAreEmpty {
+				w.logger.Error("evaluations are empty",
+					zap.Error(err),
+					zap.String("environmentNamespace", environmentNamespace),
+					zap.Any("goalEvent", event),
+				)
 				return nil, false, err
 			}
+			w.logger.Error("failed to get user evaluation",
+				zap.Error(err),
+				zap.String("environmentNamespace", environmentNamespace),
+				zap.Any("goalEvent", event),
+			)
 			return nil, true, err
 		}
 		evals = append(evals, ev)

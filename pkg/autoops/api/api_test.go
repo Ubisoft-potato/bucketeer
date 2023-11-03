@@ -93,7 +93,7 @@ func TestCreateAutoOpsRuleMySQL(t *testing.T) {
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
 
-	ctx := context.TODO()
+	ctx := createContextWithTokenRoleOwner(t)
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -323,6 +323,54 @@ func TestCreateAutoOpsRuleMySQL(t *testing.T) {
 			expectedErr: createError(statusWebhookClauseConditionFilterRequired, localizer.MustLocalizeWithTemplate(locale.RequiredFieldTemplate, "condition_filter")),
 		},
 		{
+			desc: "err: internal error",
+			setup: func(s *AutoOpsService) {
+				rows := mysqlmock.NewMockRows(mockController)
+				rows.EXPECT().Close().Return(nil)
+				rows.EXPECT().Next().Return(false)
+				rows.EXPECT().Err().Return(nil)
+				s.mysqlClient.(*mysqlmock.MockClient).EXPECT().QueryContext(
+					gomock.Any(), gomock.Any(), gomock.Any(),
+				).Return(rows, nil)
+				row := mysqlmock.NewMockRow(mockController)
+				row.EXPECT().Scan(gomock.Any()).Return(errors.New("error"))
+				s.mysqlClient.(*mysqlmock.MockClient).EXPECT().QueryRowContext(
+					gomock.Any(), gomock.Any(), gomock.Any(),
+				).Return(row)
+			},
+			req: &autoopsproto.CreateAutoOpsRuleRequest{
+				Command: &autoopsproto.CreateAutoOpsRuleCommand{
+					FeatureId: "fid",
+					OpsType:   autoopsproto.OpsType_DISABLE_FEATURE,
+					OpsEventRateClauses: []*autoopsproto.OpsEventRateClause{
+						{
+							VariationId:     "vid",
+							GoalId:          "gid",
+							MinCount:        10,
+							ThreadsholdRate: 0.5,
+							Operator:        autoopsproto.OpsEventRateClause_GREATER_OR_EQUAL,
+						},
+					},
+					DatetimeClauses: []*autoopsproto.DatetimeClause{
+						{Time: time.Now().AddDate(0, 0, 1).Unix()},
+					},
+					WebhookClauses: []*autoopsproto.WebhookClause{
+						{
+							WebhookId: "foo-id",
+							Conditions: []*autoopsproto.WebhookClause_Condition{
+								{
+									Filter:   ".foo.bar",
+									Value:    "foobaz",
+									Operator: autoopsproto.WebhookClause_Condition_EQUAL,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: createError(statusInternal, localizer.MustLocalize(locale.InternalServerError)),
+		},
+		{
 			desc: "success",
 			setup: func(s *AutoOpsService) {
 				s.experimentClient.(*experimentclientmock.MockClient).EXPECT().GetGoal(
@@ -332,6 +380,18 @@ func TestCreateAutoOpsRuleMySQL(t *testing.T) {
 				s.mysqlClient.(*mysqlmock.MockClient).EXPECT().RunInTransaction(
 					gomock.Any(), gomock.Any(), gomock.Any(),
 				).Return(nil)
+				rows := mysqlmock.NewMockRows(mockController)
+				rows.EXPECT().Close().Return(nil)
+				rows.EXPECT().Next().Return(false)
+				rows.EXPECT().Err().Return(nil)
+				s.mysqlClient.(*mysqlmock.MockClient).EXPECT().QueryContext(
+					gomock.Any(), gomock.Any(), gomock.Any(),
+				).Return(rows, nil)
+				row := mysqlmock.NewMockRow(mockController)
+				row.EXPECT().Scan(gomock.Any()).Return(nil)
+				s.mysqlClient.(*mysqlmock.MockClient).EXPECT().QueryRowContext(
+					gomock.Any(), gomock.Any(), gomock.Any(),
+				).Return(row)
 			},
 			req: &autoopsproto.CreateAutoOpsRuleRequest{
 				Command: &autoopsproto.CreateAutoOpsRuleCommand{
@@ -372,7 +432,7 @@ func TestCreateAutoOpsRuleMySQL(t *testing.T) {
 			if p.setup != nil {
 				p.setup(s)
 			}
-			_, err := s.CreateAutoOpsRule(createContextWithTokenRoleOwner(t), p.req)
+			_, err := s.CreateAutoOpsRule(ctx, p.req)
 			assert.Equal(t, p.expectedErr, err)
 		})
 	}
@@ -383,7 +443,7 @@ func TestUpdateAutoOpsRuleMySQL(t *testing.T) {
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
 
-	ctx := context.TODO()
+	ctx := createContextWithTokenRoleOwner(t)
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -546,7 +606,7 @@ func TestUpdateAutoOpsRuleMySQL(t *testing.T) {
 			if p.setup != nil {
 				p.setup(s)
 			}
-			_, err := s.UpdateAutoOpsRule(createContextWithTokenRoleOwner(t), p.req)
+			_, err := s.UpdateAutoOpsRule(ctx, p.req)
 			assert.Equal(t, p.expectedErr, err)
 		})
 	}
@@ -557,7 +617,7 @@ func TestDeleteAutoOpsRuleMySQL(t *testing.T) {
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
 
-	ctx := context.TODO()
+	ctx := createContextWithTokenRoleOwner(t)
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -611,7 +671,7 @@ func TestDeleteAutoOpsRuleMySQL(t *testing.T) {
 			if p.setup != nil {
 				p.setup(s)
 			}
-			_, err := s.DeleteAutoOpsRule(createContextWithTokenRoleOwner(t), p.req)
+			_, err := s.DeleteAutoOpsRule(ctx, p.req)
 			assert.Equal(t, p.expectedErr, err)
 		})
 	}
@@ -622,7 +682,7 @@ func TestGetAutoOpsRuleMySQL(t *testing.T) {
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
 
-	ctx := context.TODO()
+	ctx := createContextWithTokenRoleUnassigned(t)
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -678,7 +738,7 @@ func TestGetAutoOpsRuleMySQL(t *testing.T) {
 			if p.setup != nil {
 				p.setup(s)
 			}
-			_, err := s.GetAutoOpsRule(createContextWithTokenRoleUnassigned(t), p.req)
+			_, err := s.GetAutoOpsRule(ctx, p.req)
 			assert.Equal(t, p.expectedErr, err)
 		})
 	}
@@ -723,7 +783,7 @@ func TestExecuteAutoOpsRuleMySQL(t *testing.T) {
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
 
-	ctx := context.TODO()
+	ctx := createContextWithTokenRoleOwner(t)
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -798,7 +858,7 @@ func TestExecuteAutoOpsRuleMySQL(t *testing.T) {
 			if p.setup != nil {
 				p.setup(s)
 			}
-			_, err := s.ExecuteAutoOps(createContextWithTokenRoleOwner(t), p.req)
+			_, err := s.ExecuteAutoOps(ctx, p.req)
 			assert.Equal(t, p.expectedErr, err)
 		})
 	}

@@ -61,11 +61,11 @@ export namespace Account {
   export const Role: RoleMap;
 }
 
-export class EnvironmentRole extends jspb.Message {
+export class EnvironmentRoleV2 extends jspb.Message {
   hasEnvironment(): boolean;
   clearEnvironment(): void;
-  getEnvironment(): proto_environment_environment_pb.Environment | undefined;
-  setEnvironment(value?: proto_environment_environment_pb.Environment): void;
+  getEnvironment(): proto_environment_environment_pb.EnvironmentV2 | undefined;
+  setEnvironment(value?: proto_environment_environment_pb.EnvironmentV2): void;
 
   getRole(): Account.RoleMap[keyof Account.RoleMap];
   setRole(value: Account.RoleMap[keyof Account.RoleMap]): void;
@@ -77,18 +77,18 @@ export class EnvironmentRole extends jspb.Message {
   setTrialStartedAt(value: number): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): EnvironmentRole.AsObject;
-  static toObject(includeInstance: boolean, msg: EnvironmentRole): EnvironmentRole.AsObject;
+  toObject(includeInstance?: boolean): EnvironmentRoleV2.AsObject;
+  static toObject(includeInstance: boolean, msg: EnvironmentRoleV2): EnvironmentRoleV2.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: EnvironmentRole, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): EnvironmentRole;
-  static deserializeBinaryFromReader(message: EnvironmentRole, reader: jspb.BinaryReader): EnvironmentRole;
+  static serializeBinaryToWriter(message: EnvironmentRoleV2, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): EnvironmentRoleV2;
+  static deserializeBinaryFromReader(message: EnvironmentRoleV2, reader: jspb.BinaryReader): EnvironmentRoleV2;
 }
 
-export namespace EnvironmentRole {
+export namespace EnvironmentRoleV2 {
   export type AsObject = {
-    environment?: proto_environment_environment_pb.Environment.AsObject,
+    environment?: proto_environment_environment_pb.EnvironmentV2.AsObject,
     role: Account.RoleMap[keyof Account.RoleMap],
     trialProject: boolean,
     trialStartedAt: number,

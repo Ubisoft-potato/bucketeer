@@ -25,7 +25,9 @@ import (
 	autoopsclient "github.com/bucketeer-io/bucketeer/pkg/autoops/client"
 	"github.com/bucketeer-io/bucketeer/pkg/batch/api"
 	"github.com/bucketeer-io/bucketeer/pkg/batch/jobs"
+	"github.com/bucketeer-io/bucketeer/pkg/batch/jobs/calculator"
 	"github.com/bucketeer-io/bucketeer/pkg/batch/jobs/experiment"
+	"github.com/bucketeer-io/bucketeer/pkg/batch/jobs/mau"
 	"github.com/bucketeer-io/bucketeer/pkg/batch/jobs/notification"
 	"github.com/bucketeer-io/bucketeer/pkg/batch/jobs/opsevent"
 	"github.com/bucketeer-io/bucketeer/pkg/batch/jobs/rediscounter"
@@ -34,6 +36,7 @@ import (
 	environmentclient "github.com/bucketeer-io/bucketeer/pkg/environment/client"
 	ecclient "github.com/bucketeer-io/bucketeer/pkg/eventcounter/client"
 	experimentclient "github.com/bucketeer-io/bucketeer/pkg/experiment/client"
+	experimentcalculatorclient "github.com/bucketeer-io/bucketeer/pkg/experimentcalculator/client"
 	featureclient "github.com/bucketeer-io/bucketeer/pkg/feature/client"
 	"github.com/bucketeer-io/bucketeer/pkg/health"
 	"github.com/bucketeer-io/bucketeer/pkg/locale"
@@ -41,6 +44,7 @@ import (
 	notificationclient "github.com/bucketeer-io/bucketeer/pkg/notification/client"
 	notificationsender "github.com/bucketeer-io/bucketeer/pkg/notification/sender"
 	"github.com/bucketeer-io/bucketeer/pkg/notification/sender/notifier"
+	"github.com/bucketeer-io/bucketeer/pkg/opsevent/batch/executor"
 	opsexecutor "github.com/bucketeer-io/bucketeer/pkg/opsevent/batch/executor"
 	"github.com/bucketeer-io/bucketeer/pkg/pubsub"
 	"github.com/bucketeer-io/bucketeer/pkg/pubsub/puller"
@@ -72,12 +76,13 @@ type server struct {
 	mysqlPort   *int
 	mysqlDBName *string
 	// gRPC service
-	environmentService  *string
-	experimentService   *string
-	autoOpsService      *string
-	eventCounterService *string
-	featureService      *string
-	notificationService *string
+	environmentService          *string
+	experimentService           *string
+	autoOpsService              *string
+	eventCounterService         *string
+	featureService              *string
+	notificationService         *string
+	experimentCalculatorService *string
 	// PubSub config
 	domainSubscription           *string
 	domainTopic                  *string
@@ -136,6 +141,10 @@ func RegisterCommand(r cli.CommandRegistry, p cli.ParentCommand) cli.Command {
 			"notification-service",
 			"bucketeer-notification-service address.",
 		).Default("notification:9090").String(),
+		experimentCalculatorService: cmd.Flag(
+			"experiment-calculator-service",
+			"bucketeer-experiment-calculator-service address.",
+		).Default("experiment-calculator:9090").String(),
 		domainTopic: cmd.Flag(
 			"domain-topic",
 			"Google PubSub topic name of incoming domain events.").Required().String(),
@@ -261,6 +270,22 @@ func (s *server) Run(ctx context.Context, metrics metrics.Metrics, logger *zap.L
 		opsexecutor.WithLogger(logger),
 	)
 
+	progressiveRolloutExecutor := opsexecutor.NewProgressiveRolloutExecutor(
+		autoOpsClient,
+		executor.WithLogger(logger),
+	)
+
+	experimentCalculatorClient, err := experimentcalculatorclient.NewClient(*s.experimentCalculatorService, *s.certPath,
+		client.WithPerRPCCredentials(creds),
+		client.WithDialTimeout(30*time.Second),
+		client.WithBlock(),
+		client.WithMetrics(registerer),
+		client.WithLogger(logger),
+	)
+	if err != nil {
+		return err
+	}
+
 	slackNotifier := notifier.NewSlackNotifier(*s.webURL)
 
 	notificationSender := notificationsender.NewSender(
@@ -339,6 +364,13 @@ func (s *server) Run(ctx context.Context, metrics metrics.Metrics, logger *zap.L
 			jobs.WithTimeout(5*time.Minute),
 			jobs.WithLogger(logger),
 		),
+		opsevent.NewProgressiveRolloutWacher(
+			environmentClient,
+			autoOpsClient,
+			progressiveRolloutExecutor,
+			jobs.WithTimeout(5*time.Minute),
+			jobs.WithLogger(logger),
+		),
 		environmentClient,
 		domainEventPuller,
 		notificationSender,
@@ -346,6 +378,21 @@ func (s *server) Run(ctx context.Context, metrics metrics.Metrics, logger *zap.L
 			redisV3Cache,
 			environmentClient,
 			jobs.WithTimeout(5*time.Minute),
+			jobs.WithLogger(logger),
+		),
+		calculator.NewExperimentCalculate(
+			environmentClient,
+			experimentClient,
+			experimentCalculatorClient,
+			location,
+			jobs.WithTimeout(5*time.Minute),
+			jobs.WithLogger(logger),
+		),
+		mau.NewMAUSummarizer(
+			mysqlClient,
+			eventCounterClient,
+			location,
+			jobs.WithTimeout(30*time.Minute),
 			jobs.WithLogger(logger),
 		),
 		logger,
@@ -377,6 +424,7 @@ func (s *server) Run(ctx context.Context, metrics metrics.Metrics, logger *zap.L
 		eventCounterClient.Close()
 		featureClient.Close()
 		autoOpsClient.Close()
+		experimentCalculatorClient.Close()
 		mysqlClient.Close()
 	}()
 

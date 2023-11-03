@@ -38,9 +38,8 @@ import (
 )
 
 var (
-	projectIDRegex      = regexp.MustCompile("^[a-z0-9-]{1,50}$")
-	projectNameRegex    = regexp.MustCompile("^[A-Za-z0-9-_ ]{1,50}$")
-	projectUrlCodeRegex = regexp.MustCompile("^[a-z0-9-_.]{1,50}$")
+	maxProjectNameLength = 50
+	projectUrlCodeRegex  = regexp.MustCompile("^[a-z0-9-_.]{1,50}$")
 
 	//nolint:lll
 	emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
@@ -235,16 +234,8 @@ func (s *EnvironmentService) CreateProject(
 	if err := validateCreateProjectRequest(req, localizer); err != nil {
 		return nil, err
 	}
-	// TODO Once we support new create project API requiring name instead of id, we should remove this process.
 	name := strings.TrimSpace(req.Command.Name)
-	if req.Command.Name == "" {
-		name = req.Command.Id
-	}
-	// TODO Once we support new create project API requiring urlCode instead of id, we should remove this process.
-	urlCode := name
-	if req.Command.UrlCode != "" {
-		urlCode = req.Command.UrlCode
-	}
+	urlCode := strings.TrimSpace(req.Command.UrlCode)
 	project, err := domain.NewProject(name, urlCode, req.Command.Description, editor.Email, false)
 	if err != nil {
 		s.logger.Error(
@@ -258,7 +249,7 @@ func (s *EnvironmentService) CreateProject(
 	if err := s.createProject(ctx, req.Command, project, editor, localizer); err != nil {
 		return nil, err
 	}
-	return &environmentproto.CreateProjectResponse{}, nil
+	return &environmentproto.CreateProjectResponse{Project: project.Project}, nil
 }
 
 func validateCreateProjectRequest(req *environmentproto.CreateProjectRequest, localizer locale.Localizer) error {
@@ -272,9 +263,18 @@ func validateCreateProjectRequest(req *environmentproto.CreateProjectRequest, lo
 		}
 		return dt.Err()
 	}
-	// TODO Once we support new create project API requiring name instead of id, we should validate name only.
 	name := strings.TrimSpace(req.Command.Name)
-	if !projectNameRegex.MatchString(name) && !projectIDRegex.MatchString(req.Command.Id) {
+	if name == "" {
+		dt, err := statusProjectNameRequired.WithDetails(&errdetails.LocalizedMessage{
+			Locale:  localizer.GetLocale(),
+			Message: localizer.MustLocalizeWithTemplate(locale.RequiredFieldTemplate, "name"),
+		})
+		if err != nil {
+			return statusInternal.Err()
+		}
+		return dt.Err()
+	}
+	if len(name) > maxProjectNameLength {
 		dt, err := statusInvalidProjectName.WithDetails(&errdetails.LocalizedMessage{
 			Locale:  localizer.GetLocale(),
 			Message: localizer.MustLocalizeWithTemplate(locale.InvalidArgumentError, "name"),
@@ -284,7 +284,8 @@ func validateCreateProjectRequest(req *environmentproto.CreateProjectRequest, lo
 		}
 		return dt.Err()
 	}
-	if req.Command.UrlCode != "" && !projectUrlCodeRegex.MatchString(req.Command.UrlCode) {
+	urlCode := strings.TrimSpace(req.Command.UrlCode)
+	if !projectUrlCodeRegex.MatchString(urlCode) {
 		dt, err := statusInvalidProjectUrlCode.WithDetails(&errdetails.LocalizedMessage{
 			Locale:  localizer.GetLocale(),
 			Message: localizer.MustLocalizeWithTemplate(locale.InvalidArgumentError, "url_code"),
@@ -432,7 +433,17 @@ func validateCreateTrialProjectRequest(
 	}
 	// TODO Once we support new create project API requiring name instead of id, we should validate name using regex.
 	name := strings.TrimSpace(req.Command.Name)
-	if !projectNameRegex.MatchString(name) && !projectIDRegex.MatchString(req.Command.Id) {
+	if name == "" {
+		dt, err := statusProjectNameRequired.WithDetails(&errdetails.LocalizedMessage{
+			Locale:  localizer.GetLocale(),
+			Message: localizer.MustLocalizeWithTemplate(locale.RequiredFieldTemplate, "name"),
+		})
+		if err != nil {
+			return statusInternal.Err()
+		}
+		return dt.Err()
+	}
+	if len(name) > maxProjectNameLength {
 		dt, err := statusInvalidProjectName.WithDetails(&errdetails.LocalizedMessage{
 			Locale:  localizer.GetLocale(),
 			Message: localizer.MustLocalizeWithTemplate(locale.InvalidArgumentError, "name"),
@@ -525,24 +536,16 @@ func (s *EnvironmentService) createTrialEnvironmentsAndAccounts(
 		fmt.Sprintf("%s-production", project.Name),
 	}
 	for _, envID := range envIDs {
-		createEnvCmd := &environmentproto.CreateEnvironmentCommand{
-			Id:          envID,
-			ProjectId:   project.Id,
-			Description: "",
-		}
-		env := domain.NewEnvironment(envID, "", project.Id)
-		if err := s.createEnvironment(ctx, createEnvCmd, env, editor, localizer); err != nil {
-			return err
-		}
-		// TODO: We create environments with v1 and v2 APIs for now.
-		// We should remove v1 API once we migrate all environments to v2.
 		createEnvCmdV2 := &environmentproto.CreateEnvironmentV2Command{
 			Name:        envID,
 			UrlCode:     envID,
 			ProjectId:   project.Id,
 			Description: "",
 		}
-		envV2 := domain.TmpNewEnvironmentV2(envID, envID, "", project.Id)
+		envV2, err := domain.NewEnvironmentV2(envID, envID, "", project.Id, s.logger)
+		if err != nil {
+			return err
+		}
 		if err := s.createEnvironmentV2(ctx, createEnvCmdV2, envV2, editor, localizer); err != nil {
 			return err
 		}
@@ -552,7 +555,7 @@ func (s *EnvironmentService) createTrialEnvironmentsAndAccounts(
 					Email: editor.Email,
 					Role:  accountproto.Account_OWNER,
 				},
-				EnvironmentNamespace: env.Namespace,
+				EnvironmentNamespace: envV2.Id,
 			}
 			if _, err := s.accountClient.CreateAccount(ctx, createAccountReq); err != nil {
 				dt, err := statusInternal.WithDetails(&errdetails.LocalizedMessage{
@@ -623,7 +626,17 @@ func validateUpdateProjectRequest(id string, commands []command.Command, localiz
 	for _, cmd := range commands {
 		if c, ok := cmd.(*environmentproto.RenameProjectCommand); ok {
 			name := strings.TrimSpace(c.Name)
-			if !projectNameRegex.MatchString(name) {
+			if name == "" {
+				dt, err := statusProjectNameRequired.WithDetails(&errdetails.LocalizedMessage{
+					Locale:  localizer.GetLocale(),
+					Message: localizer.MustLocalizeWithTemplate(locale.RequiredFieldTemplate, "name"),
+				})
+				if err != nil {
+					return statusInternal.Err()
+				}
+				return dt.Err()
+			}
+			if len(name) > maxProjectNameLength {
 				dt, err := statusInvalidProjectName.WithDetails(&errdetails.LocalizedMessage{
 					Locale:  localizer.GetLocale(),
 					Message: localizer.MustLocalizeWithTemplate(locale.InvalidArgumentError, "name"),

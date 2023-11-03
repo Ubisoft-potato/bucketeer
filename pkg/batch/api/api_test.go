@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -28,7 +29,9 @@ import (
 	aoclientmock "github.com/bucketeer-io/bucketeer/pkg/autoops/client/mock"
 	autoopsdomain "github.com/bucketeer-io/bucketeer/pkg/autoops/domain"
 	"github.com/bucketeer-io/bucketeer/pkg/batch/jobs"
+	"github.com/bucketeer-io/bucketeer/pkg/batch/jobs/calculator"
 	"github.com/bucketeer-io/bucketeer/pkg/batch/jobs/experiment"
+	"github.com/bucketeer-io/bucketeer/pkg/batch/jobs/mau"
 	"github.com/bucketeer-io/bucketeer/pkg/batch/jobs/notification"
 	"github.com/bucketeer-io/bucketeer/pkg/batch/jobs/opsevent"
 	"github.com/bucketeer-io/bucketeer/pkg/batch/jobs/rediscounter"
@@ -36,6 +39,7 @@ import (
 	environmentclient "github.com/bucketeer-io/bucketeer/pkg/environment/client/mock"
 	ecclient "github.com/bucketeer-io/bucketeer/pkg/eventcounter/client/mock"
 	experimentclient "github.com/bucketeer-io/bucketeer/pkg/experiment/client/mock"
+	experimentcalculatorclient "github.com/bucketeer-io/bucketeer/pkg/experimentcalculator/client/mock"
 	featureclientmock "github.com/bucketeer-io/bucketeer/pkg/feature/client/mock"
 	featuredomain "github.com/bucketeer-io/bucketeer/pkg/feature/domain"
 	"github.com/bucketeer-io/bucketeer/pkg/log"
@@ -65,6 +69,7 @@ type setupMockFunc func(
 	eventCounterMockClient *ecclient.MockClient,
 	notificationMockSender *notificationsender.MockSender,
 	mockAutoOpsExecutor *opsexecutor.MockAutoOpsExecutor,
+	mockProgressiveRolloutExecutor *opsexecutor.MockProgressiveRolloutExecutor,
 	domainMockEventPuller *domainEventPullerMock,
 	// redisCounterDeleterMock *redisCounterDeleterMock,
 	mysqlMockClient *mysqlmock.MockClient)
@@ -106,6 +111,7 @@ func TestExperimentStatusUpdater(t *testing.T) {
 		eventCounterMockClient *ecclient.MockClient,
 		notificationMockSender *notificationsender.MockSender,
 		mockAutoOpsExecutor *opsexecutor.MockAutoOpsExecutor,
+		mockProgressiveRolloutExecutor *opsexecutor.MockProgressiveRolloutExecutor,
 		domainMockEventPuller *domainEventPullerMock,
 		mysqlMockClient *mysqlmock.MockClient) {
 		environmentMockClient.EXPECT().
@@ -154,6 +160,7 @@ func TestExperimentRunningWatcher(t *testing.T) {
 		eventCounterMockClient *ecclient.MockClient,
 		notificationMockSender *notificationsender.MockSender,
 		mockAutoOpsExecutor *opsexecutor.MockAutoOpsExecutor,
+		mockProgressiveRolloutExecutor *opsexecutor.MockProgressiveRolloutExecutor,
 		domainMockEventPuller *domainEventPullerMock,
 		mysqlMockClient *mysqlmock.MockClient) {
 		environmentMockClient.EXPECT().
@@ -192,6 +199,7 @@ func TestFeatureStaleWatcher(t *testing.T) {
 		eventCounterMockClient *ecclient.MockClient,
 		notificationMockSender *notificationsender.MockSender,
 		mockAutoOpsExecutor *opsexecutor.MockAutoOpsExecutor,
+		mockProgressiveRolloutExecutor *opsexecutor.MockProgressiveRolloutExecutor,
 		domainMockEventPuller *domainEventPullerMock,
 		mysqlMockClient *mysqlmock.MockClient) {
 		environmentMockClient.EXPECT().
@@ -230,6 +238,7 @@ func TestMAUCountWatcher(t *testing.T) {
 		eventCounterMockClient *ecclient.MockClient,
 		notificationMockSender *notificationsender.MockSender,
 		mockAutoOpsExecutor *opsexecutor.MockAutoOpsExecutor,
+		mockProgressiveRolloutExecutor *opsexecutor.MockProgressiveRolloutExecutor,
 		domainMockEventPuller *domainEventPullerMock,
 		mysqlMockClient *mysqlmock.MockClient) {
 		environmentMockClient.EXPECT().
@@ -278,6 +287,7 @@ func TestDatetimeWatcher(t *testing.T) {
 		eventCounterMockClient *ecclient.MockClient,
 		notificationMockSender *notificationsender.MockSender,
 		mockAutoOpsExecutor *opsexecutor.MockAutoOpsExecutor,
+		mockProgressiveRolloutExecutor *opsexecutor.MockProgressiveRolloutExecutor,
 		domainMockEventPuller *domainEventPullerMock,
 		mysqlMockClient *mysqlmock.MockClient) {
 		environmentMockClient.EXPECT().
@@ -324,6 +334,7 @@ func TestEventCountWatcher(t *testing.T) {
 		eventCounterMockClient *ecclient.MockClient,
 		notificationMockSender *notificationsender.MockSender,
 		mockAutoOpsExecutor *opsexecutor.MockAutoOpsExecutor,
+		mockProgressiveRolloutExecutor *opsexecutor.MockProgressiveRolloutExecutor,
 		domainMockEventPuller *domainEventPullerMock,
 		mysqlMockClient *mysqlmock.MockClient) {
 		environmentMockClient.EXPECT().
@@ -412,6 +423,68 @@ func TestEventCountWatcher(t *testing.T) {
 	}, setupMock)
 }
 
+func TestProgressiveRolloutWatcher(t *testing.T) {
+	setupMock := func(
+		environmentMockClient *environmentclient.MockClient,
+		autoOpsRulesMockClient *aoclientmock.MockClient,
+		experimentMockClient *experimentclient.MockClient,
+		featureMockClient *featureclientmock.MockClient,
+		eventCounterMockClient *ecclient.MockClient,
+		notificationMockSender *notificationsender.MockSender,
+		mockAutoOpsExecutor *opsexecutor.MockAutoOpsExecutor,
+		mockProgressiveRolloutExecutor *opsexecutor.MockProgressiveRolloutExecutor,
+		domainMockEventPuller *domainEventPullerMock,
+		mysqlMockClient *mysqlmock.MockClient) {
+		environmentMockClient.EXPECT().
+			ListEnvironmentsV2(gomock.Any(), gomock.Any()).
+			Times(1).
+			Return(
+				&environmentproto.ListEnvironmentsV2Response{
+					Environments: []*environmentproto.EnvironmentV2{
+						{Id: "env0", ProjectId: "pj0"},
+						{Id: "env1", ProjectId: "pj1"},
+					},
+				},
+				nil,
+			)
+		autoOpsRulesMockClient.EXPECT().ListProgressiveRollouts(
+			gomock.Any(),
+			&autoopsproto.ListProgressiveRolloutsRequest{
+				PageSize:             0,
+				EnvironmentNamespace: "env0",
+			},
+		).Return(
+			&autoopsproto.ListProgressiveRolloutsResponse{
+				ProgressiveRollouts: []*autoopsproto.ProgressiveRollout{
+					newProgressiveRollout(t),
+				},
+			},
+			nil,
+		)
+		autoOpsRulesMockClient.EXPECT().ListProgressiveRollouts(
+			gomock.Any(),
+			&autoopsproto.ListProgressiveRolloutsRequest{
+				PageSize:             0,
+				EnvironmentNamespace: "env1",
+			},
+		).Return(
+			&autoopsproto.ListProgressiveRolloutsResponse{
+				ProgressiveRollouts: []*autoopsproto.ProgressiveRollout{
+					newProgressiveRollout(t),
+				},
+			},
+			nil,
+		)
+		mockProgressiveRolloutExecutor.EXPECT().
+			ExecuteProgressiveRollout(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Times(2).
+			Return(nil)
+	}
+	executeMockBatchJob(t, &batchproto.BatchJobRequest{
+		Job: batchproto.BatchJob_ProgressiveRolloutWatcher,
+	}, setupMock)
+}
+
 func TestDomainEventInformer(t *testing.T) {
 	setupMock := func(
 		environmentMockClient *environmentclient.MockClient,
@@ -421,6 +494,7 @@ func TestDomainEventInformer(t *testing.T) {
 		eventCounterMockClient *ecclient.MockClient,
 		notificationMockSender *notificationsender.MockSender,
 		mockAutoOpsExecutor *opsexecutor.MockAutoOpsExecutor,
+		mockProgressiveRolloutExecutor *opsexecutor.MockProgressiveRolloutExecutor,
 		domainMockEventPuller *domainEventPullerMock,
 		mysqlMockClient *mysqlmock.MockClient) {
 		environmentMockClient.EXPECT().
@@ -466,9 +540,11 @@ func newBatchService(t *testing.T,
 	eventCounterMockClient := ecclient.NewMockClient(mockController)
 	notificationMockSender := notificationsender.NewMockSender(mockController)
 	mockAutoOpsExecutor := opsexecutor.NewMockAutoOpsExecutor(mockController)
+	mockProgressiveRolloutExecutor := opsexecutor.NewMockProgressiveRolloutExecutor(mockController)
 	domainMockEventPuller := &domainEventPullerMock{}
 	cacheMock := cachemock.NewMockMultiGetDeleteCountCache(mockController)
 	mysqlMockClient := mysqlmock.NewMockClient(mockController)
+	experimentCalculatorClient := experimentcalculatorclient.NewMockClient(mockController)
 
 	setupMock(
 		environmentMockClient,
@@ -478,6 +554,7 @@ func newBatchService(t *testing.T,
 		eventCounterMockClient,
 		notificationMockSender,
 		mockAutoOpsExecutor,
+		mockProgressiveRolloutExecutor,
 		domainMockEventPuller,
 		mysqlMockClient,
 	)
@@ -527,6 +604,13 @@ func newBatchService(t *testing.T,
 			jobs.WithTimeout(5*time.Minute),
 			jobs.WithLogger(logger),
 		),
+		opsevent.NewProgressiveRolloutWacher(
+			environmentMockClient,
+			autoOpsRulesMockClient,
+			mockProgressiveRolloutExecutor,
+			jobs.WithTimeout(5*time.Minute),
+			jobs.WithLogger(logger),
+		),
 		environmentMockClient,
 		domainMockEventPuller,
 		notificationMockSender,
@@ -534,6 +618,21 @@ func newBatchService(t *testing.T,
 			cacheMock,
 			environmentMockClient,
 			jobs.WithTimeout(5*time.Minute),
+			jobs.WithLogger(logger),
+		),
+		calculator.NewExperimentCalculate(
+			environmentMockClient,
+			experimentMockClient,
+			experimentCalculatorClient,
+			jpLocation,
+			jobs.WithTimeout(5*time.Minute),
+			jobs.WithLogger(logger),
+		),
+		mau.NewMAUSummarizer(
+			mysqlMockClient,
+			eventCounterMockClient,
+			jpLocation,
+			jobs.WithTimeout(30*time.Minute),
 			jobs.WithLogger(logger),
 		),
 		logger,
@@ -617,4 +716,23 @@ func newAutoOpsRule(t *testing.T) *autoopsproto.AutoOpsRule {
 	)
 	require.NoError(t, err)
 	return aor.AutoOpsRule
+}
+
+func newProgressiveRollout(t *testing.T) *autoopsproto.ProgressiveRollout {
+	dc := &autoopsproto.ProgressiveRolloutTemplateScheduleClause{
+		Schedules: []*autoopsproto.ProgressiveRolloutSchedule{
+			{
+				ScheduleId: "sID",
+				ExecuteAt:  time.Now().Unix(),
+			},
+		},
+	}
+	c, err := ptypes.MarshalAny(dc)
+	require.NoError(t, err)
+	return &autoopsproto.ProgressiveRollout{
+		Id:        "prID",
+		FeatureId: "fID",
+		Clause:    c,
+		Type:      autoopsproto.ProgressiveRollout_TEMPLATE_SCHEDULE,
+	}
 }

@@ -59,7 +59,6 @@ var (
 		codes.InvalidArgument,
 		"feature: feature must contain one or more tags",
 	)
-	statusMissingFeatureTag               = gstatus.New(codes.InvalidArgument, "feature: missing feature tag")
 	statusUnknownCommand                  = gstatus.New(codes.InvalidArgument, "feature: unknown command")
 	statusMissingRule                     = gstatus.New(codes.InvalidArgument, "feature: missing rule")
 	statusMissingRuleID                   = gstatus.New(codes.InvalidArgument, "feature: missing rule id")
@@ -123,5 +122,9 @@ var (
 		codes.FailedPrecondition,
 		"feature: can't change or remove this variation because it is used as a prerequsite",
 	)
-	statusInvalidPrerequisite = gstatus.New(codes.FailedPrecondition, "feature: invalid prerequisite")
+	statusInvalidPrerequisite                      = gstatus.New(codes.FailedPrecondition, "feature: invalid prerequisite")
+	statusWaitingOrRunningProgressiveRolloutExists = gstatus.New(
+		codes.FailedPrecondition,
+		"feature: progressive rollout in waiting or running status exists",
+	)
 )

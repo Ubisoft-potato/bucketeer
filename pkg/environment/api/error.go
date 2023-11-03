@@ -20,21 +20,22 @@ import (
 )
 
 var (
-	statusInternal                   = gstatus.New(codes.Internal, "environment: internal")
-	statusNoCommand                  = gstatus.New(codes.InvalidArgument, "environment: no command")
-	statusInvalidCursor              = gstatus.New(codes.InvalidArgument, "environment: cursor is invalid")
-	statusEnvironmentIDRequired      = gstatus.New(codes.InvalidArgument, "environment: environment id must be specified")
-	statusInvalidEnvironmentID       = gstatus.New(codes.InvalidArgument, "environment: invalid environment id")
+	statusInternal      = gstatus.New(codes.Internal, "environment: internal")
+	statusNoCommand     = gstatus.New(codes.InvalidArgument, "environment: no command")
+	statusInvalidCursor = gstatus.New(codes.InvalidArgument, "environment: cursor is invalid")
+	// Essentially, the id field is required, but no validation is performed because some older services do not have ID.
+	//statusEnvironmentIDRequired = gstatus.New(codes.InvalidArgument, "environment: environment id must be specified")
+	statusEnvironmentNameRequired    = gstatus.New(codes.InvalidArgument, "environment: environment name must be specified") // nolint:lll
 	statusInvalidEnvironmentName     = gstatus.New(codes.InvalidArgument, "environment: invalid environment name")
 	statusInvalidEnvironmentUrlCode  = gstatus.New(codes.InvalidArgument, "environment: invalid environment url code")
 	statusProjectIDRequired          = gstatus.New(codes.InvalidArgument, "environment: project id must be specified")
+	statusProjectNameRequired        = gstatus.New(codes.InvalidArgument, "environment: project name must be specified")
 	statusInvalidProjectName         = gstatus.New(codes.InvalidArgument, "environment: invalid project name")
 	statusInvalidProjectUrlCode      = gstatus.New(codes.InvalidArgument, "environment: invalid project url code")
 	statusInvalidProjectCreatorEmail = gstatus.New(codes.InvalidArgument, "environment: invalid project creator email")
 	statusInvalidOrderBy             = gstatus.New(codes.InvalidArgument, "environment: order_by is invalid")
 	statusEnvironmentNotFound        = gstatus.New(codes.NotFound, "environment: environment not found")
 	statusProjectNotFound            = gstatus.New(codes.NotFound, "environment: project not found")
-	statusEnvironmentAlreadyDeleted  = gstatus.New(codes.NotFound, "environment: environment already deleted")
 	statusEnvironmentAlreadyExists   = gstatus.New(codes.AlreadyExists, "environment: environment already exists")
 	statusProjectAlreadyExists       = gstatus.New(codes.AlreadyExists, "environment: project already exists")
 	statusProjectDisabled            = gstatus.New(codes.FailedPrecondition, "environment: project disabled")

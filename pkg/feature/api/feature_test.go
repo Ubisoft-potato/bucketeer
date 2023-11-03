@@ -44,7 +44,7 @@ func TestGetFeatureMySQL(t *testing.T) {
 	t.Parallel()
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
-	ctx := context.TODO()
+	ctx := createContextWithToken()
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -91,7 +91,6 @@ func TestGetFeatureMySQL(t *testing.T) {
 	}
 	for _, p := range patterns {
 		t.Run(p.desc, func(t *testing.T) {
-			ctx := createContextWithToken()
 			fs := createFeatureServiceNew(mockController)
 			if p.setup != nil {
 				p.setup(fs)
@@ -110,7 +109,7 @@ func TestGetFeaturesMySQL(t *testing.T) {
 	t.Parallel()
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
-	ctx := context.TODO()
+	ctx := createContextWithToken()
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -162,7 +161,6 @@ func TestGetFeaturesMySQL(t *testing.T) {
 	}
 	for _, p := range patterns {
 		t.Run(p.desc, func(t *testing.T) {
-			ctx := createContextWithToken()
 			fs := createFeatureServiceNew(mockController)
 			if p.setup != nil {
 				p.setup(fs)
@@ -182,7 +180,7 @@ func TestListFeaturesMySQL(t *testing.T) {
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
 
-	ctx := context.TODO()
+	ctx := createContextWithToken()
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -252,7 +250,6 @@ func TestListFeaturesMySQL(t *testing.T) {
 		},
 	}
 	for _, p := range patterns {
-		ctx := createContextWithToken()
 		service := createFeatureService(mockController)
 		if p.setup != nil {
 			p.setup(service)
@@ -587,7 +584,7 @@ func TestEvaluateFeatures(t *testing.T) {
 	vID3 := newUUID(t)
 	vID4 := newUUID(t)
 
-	ctx := context.TODO()
+	ctx := createContextWithToken()
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -621,13 +618,6 @@ func TestEvaluateFeatures(t *testing.T) {
 			input:       &featureproto.EvaluateFeaturesRequest{User: &userproto.User{}},
 			expected:    nil,
 			expectedErr: createError(statusMissingUserID, localizer.MustLocalizeWithTemplate(locale.RequiredFieldTemplate, "user_id")),
-		},
-		{
-			desc:        "fail: ErrMissingFeatureTag",
-			setup:       nil,
-			input:       &featureproto.EvaluateFeaturesRequest{User: &userproto.User{Id: "test-id"}, EnvironmentNamespace: "ns0"},
-			expected:    nil,
-			expectedErr: createError(statusMissingFeatureTag, localizer.MustLocalizeWithTemplate(locale.RequiredFieldTemplate, "tag")),
 		},
 		{
 			desc: "fail: return errInternal when getting features",
@@ -1041,7 +1031,6 @@ func TestEvaluateFeatures(t *testing.T) {
 		},
 	}
 	for _, p := range patterns {
-		ctx := createContextWithToken()
 		service := createFeatureService(mockController)
 		if p.setup != nil {
 			p.setup(service)
@@ -1070,7 +1059,7 @@ func TestEvaluateSingleFeature(t *testing.T) {
 	vID3 := newUUID(t)
 	vID4 := newUUID(t)
 
-	ctx := context.TODO()
+	ctx := createContextWithToken()
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -1286,7 +1275,6 @@ func TestEvaluateSingleFeature(t *testing.T) {
 		},
 	}
 	for _, p := range patterns {
-		ctx := createContextWithToken()
 		service := createFeatureService(mockController)
 		if p.setup != nil {
 			p.setup(service)
@@ -1303,7 +1291,8 @@ func TestUnauthenticated(t *testing.T) {
 	t.Parallel()
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
-	ctx := context.TODO()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -1317,8 +1306,6 @@ func TestUnauthenticated(t *testing.T) {
 		return st.Err()
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	service := createFeatureService(mockController)
 	patterns := []struct {
 		desc     string
