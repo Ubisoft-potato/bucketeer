@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/bucketeer-io/bucketeer/pkg/cache"
 	"net/http"
 	"net/url"
 	"path"
