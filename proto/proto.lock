@@ -9326,7 +9326,7 @@
               },
               {
                 "id": 7,
-                "name": "uuid",
+                "name": "token",
                 "type": "string"
               },
               {
@@ -9338,11 +9338,6 @@
                 "id": 9,
                 "name": "updated_at",
                 "type": "int64"
-              },
-              {
-                "id": 10,
-                "name": "token",
-                "type": "string"
               }
             ]
           },
@@ -9366,11 +9361,6 @@
               },
               {
                 "id": 4,
-                "name": "uuid",
-                "type": "string"
-              },
-              {
-                "id": 5,
                 "name": "token",
                 "type": "string"
               }
@@ -13471,7 +13461,7 @@
               },
               {
                 "id": 9,
-                "name": "uuid",
+                "name": "token",
                 "type": "string"
               },
               {
@@ -13488,11 +13478,6 @@
                 "id": 12,
                 "name": "updated_at",
                 "type": "int64"
-              },
-              {
-                "id": 13,
-                "name": "token",
-                "type": "string"
               }
             ]
           }
