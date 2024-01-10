@@ -15358,7 +15358,7 @@
                     "name": "(google.api.http)",
                     "aggregated": [
                       {
-                        "name": "post",
+                        "name": "get",
                         "value": "/webhook/{token}"
                       }
                     ]
