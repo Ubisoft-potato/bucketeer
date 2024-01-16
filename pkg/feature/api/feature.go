@@ -56,7 +56,7 @@ func (s *FeatureService) GetFeature(
 	req *featureproto.GetFeatureRequest,
 ) (*featureproto.GetFeatureResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkRole(ctx, accountproto.Account_VIEWER, req.EnvironmentNamespace, localizer)
+	_, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_VIEWER, req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func (s *FeatureService) GetFeatures(
 	req *featureproto.GetFeaturesRequest,
 ) (*featureproto.GetFeaturesResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkRole(ctx, accountproto.Account_VIEWER, req.EnvironmentNamespace, localizer)
+	_, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_VIEWER, req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +159,7 @@ func (s *FeatureService) ListFeatures(
 	req *featureproto.ListFeaturesRequest,
 ) (*featureproto.ListFeaturesResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkRole(ctx, accountproto.Account_VIEWER, req.EnvironmentNamespace, localizer)
+	_, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_VIEWER, req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -459,7 +459,7 @@ func (s *FeatureService) ListEnabledFeatures(
 	req *featureproto.ListEnabledFeaturesRequest,
 ) (*featureproto.ListEnabledFeaturesResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkRole(ctx, accountproto.Account_VIEWER, req.EnvironmentNamespace, localizer)
+	_, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_VIEWER, req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -527,7 +527,7 @@ func (s *FeatureService) CreateFeature(
 	req *featureproto.CreateFeatureRequest,
 ) (*featureproto.CreateFeatureResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.Account_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -665,7 +665,7 @@ func (s *FeatureService) UpdateFeatureDetails(
 	req *featureproto.UpdateFeatureDetailsRequest,
 ) (*featureproto.UpdateFeatureDetailsResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.Account_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -939,7 +939,19 @@ func (s *FeatureService) EnableFeature(
 	if err := validateEnableFeatureRequest(req, localizer); err != nil {
 		return nil, err
 	}
-	if err := s.updateFeature(ctx, req.Command, req.Id, req.EnvironmentNamespace, req.Comment, localizer); err != nil {
+	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.updateFeature(
+		ctx,
+		req.Command,
+		req.Id,
+		req.EnvironmentNamespace,
+		req.Comment,
+		localizer,
+		editor,
+	); err != nil {
 		if status.Code(err) == codes.Internal {
 			s.logger.Error(
 				"Failed to enable feature",
@@ -964,7 +976,19 @@ func (s *FeatureService) DisableFeature(
 	if err := validateDisableFeatureRequest(req, localizer); err != nil {
 		return nil, err
 	}
-	if err := s.updateFeature(ctx, req.Command, req.Id, req.EnvironmentNamespace, req.Comment, localizer); err != nil {
+	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.updateFeature(
+		ctx,
+		req.Command,
+		req.Id,
+		req.EnvironmentNamespace,
+		req.Comment,
+		localizer,
+		editor,
+	); err != nil {
 		if status.Code(err) == codes.Internal {
 			s.logger.Error(
 				"Failed to disable feature",
@@ -1010,7 +1034,19 @@ func (s *FeatureService) ArchiveFeature(
 	if err := validateArchiveFeatureRequest(req, features, localizer); err != nil {
 		return nil, err
 	}
-	if err := s.updateFeature(ctx, req.Command, req.Id, req.EnvironmentNamespace, req.Comment, localizer); err != nil {
+	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.updateFeature(
+		ctx,
+		req.Command,
+		req.Id,
+		req.EnvironmentNamespace,
+		req.Comment,
+		localizer,
+		editor,
+	); err != nil {
 		if status.Code(err) == codes.Internal {
 			s.logger.Error(
 				"Failed to archive feature",
@@ -1033,7 +1069,19 @@ func (s *FeatureService) UnarchiveFeature(
 	if err := validateUnarchiveFeatureRequest(req, localizer); err != nil {
 		return nil, err
 	}
-	if err := s.updateFeature(ctx, req.Command, req.Id, req.EnvironmentNamespace, req.Comment, localizer); err != nil {
+	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.updateFeature(
+		ctx,
+		req.Command,
+		req.Id,
+		req.EnvironmentNamespace,
+		req.Comment,
+		localizer,
+		editor,
+	); err != nil {
 		if status.Code(err) == codes.Internal {
 			s.logger.Error(
 				"Failed to unarchive feature",
@@ -1056,7 +1104,19 @@ func (s *FeatureService) DeleteFeature(
 	if err := validateDeleteFeatureRequest(req, localizer); err != nil {
 		return nil, err
 	}
-	if err := s.updateFeature(ctx, req.Command, req.Id, req.EnvironmentNamespace, req.Comment, localizer); err != nil {
+	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.updateFeature(
+		ctx,
+		req.Command,
+		req.Id,
+		req.EnvironmentNamespace,
+		req.Comment,
+		localizer,
+		editor,
+	); err != nil {
 		if status.Code(err) == codes.Internal {
 			s.logger.Error(
 				"Failed to delete feature",
@@ -1076,11 +1136,8 @@ func (s *FeatureService) updateFeature(
 	cmd command.Command,
 	id, environmentNamespace, comment string,
 	localizer locale.Localizer,
+	editor *eventproto.Editor,
 ) error {
-	editor, err := s.checkRole(ctx, accountproto.Account_EDITOR, environmentNamespace, localizer)
-	if err != nil {
-		return err
-	}
 	if id == "" {
 		dt, err := statusMissingID.WithDetails(&errdetails.LocalizedMessage{
 			Locale:  localizer.GetLocale(),
@@ -1258,7 +1315,7 @@ func (s *FeatureService) UpdateFeatureVariations(
 	req *featureproto.UpdateFeatureVariationsRequest,
 ) (*featureproto.UpdateFeatureVariationsResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.Account_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -1448,7 +1505,7 @@ func (s *FeatureService) UpdateFeatureTargeting(
 	req *featureproto.UpdateFeatureTargetingRequest,
 ) (*featureproto.UpdateFeatureTargetingResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.Account_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -1886,7 +1943,7 @@ func (s *FeatureService) EvaluateFeatures(
 	req *featureproto.EvaluateFeaturesRequest,
 ) (*featureproto.EvaluateFeaturesResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkRole(ctx, accountproto.Account_VIEWER, req.EnvironmentNamespace, localizer)
+	_, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_VIEWER, req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -2055,7 +2112,12 @@ func (s *FeatureService) CloneFeature(
 	if err := validateCloneFeatureRequest(req, localizer); err != nil {
 		return nil, err
 	}
-	editor, err := s.checkRole(ctx, accountproto.Account_EDITOR, req.Command.EnvironmentNamespace, localizer)
+	editor, err := s.checkRole(
+		ctx,
+		accountproto.AccountV2_Role_Environment_EDITOR,
+		req.Command.EnvironmentNamespace,
+		localizer,
+	)
 	if err != nil {
 		return nil, err
 	}

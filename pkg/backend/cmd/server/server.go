@@ -70,7 +70,7 @@ const (
 	aws                           = "aws"
 	hcv                           = "hcv"
 	autoOpsWebhookPath            = "hook"
-	featureFlagTriggerWebhookPath = "webhook"
+	featureFlagTriggerWebhookPath = "webhook/triggers"
 	healthCheckTimeout            = 1 * time.Second
 	clientDialTimeout             = 30 * time.Second
 	serverShutDownTimeout         = 10 * time.Second
@@ -838,10 +838,6 @@ func (s *server) createFeatureService(
 	mysqlClient mysql.Client,
 	logger *zap.Logger,
 ) (rpc.Service, error) {
-	triggerCryptoUtil, err := s.createCryptoUtil(ctx)
-	if err != nil {
-		return nil, err
-	}
 	featureService := featureapi.NewFeatureService(
 		mysqlClient,
 		accountClient,
@@ -850,7 +846,6 @@ func (s *server) createFeatureService(
 		nonPersistentRedisV3Cache,
 		segmentUsersPublisher,
 		domainTopicPublisher,
-		triggerCryptoUtil,
 		fmt.Sprintf("%s/%s", *s.webhookBaseURL, featureFlagTriggerWebhookPath),
 		featureapi.WithLogger(logger),
 	)

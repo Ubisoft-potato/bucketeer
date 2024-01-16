@@ -39,7 +39,12 @@ func (s *AccountService) CreateAccount(
 	req *accountproto.CreateAccountRequest,
 ) (*accountproto.CreateAccountResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.Account_OWNER, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkOrganizationRoleByEnvironmentID(
+		ctx,
+		accountproto.AccountV2_Role_Organization_ADMIN,
+		req.EnvironmentNamespace,
+		localizer,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -57,6 +62,24 @@ func (s *AccountService) CreateAccount(
 	if err != nil {
 		s.logger.Error(
 			"Failed to create a new account",
+			log.FieldsFromImcomingContext(ctx).AddFields(
+				zap.Error(err),
+				zap.String("environmentNamespace", req.EnvironmentNamespace),
+			)...,
+		)
+		dt, err := statusInternal.WithDetails(&errdetails.LocalizedMessage{
+			Locale:  localizer.GetLocale(),
+			Message: localizer.MustLocalize(locale.InternalServerError),
+		})
+		if err != nil {
+			return nil, statusInternal.Err()
+		}
+		return nil, dt.Err()
+	}
+	orgID, err := s.getOrganizationID(ctx, req.EnvironmentNamespace)
+	if err != nil {
+		s.logger.Error(
+			"Failed to get organization id",
 			log.FieldsFromImcomingContext(ctx).AddFields(
 				zap.Error(err),
 				zap.String("environmentNamespace", req.EnvironmentNamespace),
@@ -98,7 +121,13 @@ func (s *AccountService) CreateAccount(
 		if err := handler.Handle(ctx, req.Command); err != nil {
 			return err
 		}
-		return s.accountStorage.CreateAccount(ctx, account, req.EnvironmentNamespace)
+		err := s.accountStorage.CreateAccount(ctx, account, req.EnvironmentNamespace)
+		if err != nil {
+			return err
+		}
+		// TODO: temporary implementation: double write account v2
+		accountV2 := domain.ConvertAccountV2(account, req.EnvironmentNamespace, orgID)
+		return s.accountStorage.CreateAccountV2(ctx, accountV2)
 	})
 	if err != nil {
 		if err == v2as.ErrAccountAlreadyExists {
@@ -135,7 +164,12 @@ func (s *AccountService) ChangeAccountRole(
 	req *accountproto.ChangeAccountRoleRequest,
 ) (*accountproto.ChangeAccountRoleResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.Account_OWNER, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkOrganizationRoleByEnvironmentID(
+		ctx,
+		accountproto.AccountV2_Role_Organization_ADMIN,
+		req.EnvironmentNamespace,
+		localizer,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +183,46 @@ func (s *AccountService) ChangeAccountRole(
 		)
 		return nil, err
 	}
-	if err := s.updateAccountMySQL(ctx, editor, req.Command, req.Id, req.EnvironmentNamespace); err != nil {
+	orgID, err := s.getOrganizationID(ctx, req.EnvironmentNamespace)
+	if err != nil {
+		s.logger.Error(
+			"Failed to get organization id",
+			log.FieldsFromImcomingContext(ctx).AddFields(
+				zap.Error(err),
+				zap.String("environmentNamespace", req.EnvironmentNamespace),
+			)...,
+		)
+		dt, err := statusInternal.WithDetails(&errdetails.LocalizedMessage{
+			Locale:  localizer.GetLocale(),
+			Message: localizer.MustLocalize(locale.InternalServerError),
+		})
+		if err != nil {
+			return nil, statusInternal.Err()
+		}
+		return nil, dt.Err()
+	}
+	err = s.accountStorage.RunInTransaction(ctx, func() error {
+		account, err := s.accountStorage.GetAccount(ctx, req.Id, req.EnvironmentNamespace)
+		if err != nil {
+			return err
+		}
+		handler := command.NewAccountCommandHandler(editor, account, s.publisher, req.EnvironmentNamespace)
+		if err := handler.Handle(ctx, req.Command); err != nil {
+			return err
+		}
+		err = s.accountStorage.UpdateAccount(ctx, account, req.EnvironmentNamespace)
+		if err != nil {
+			return err
+		}
+		// TODO: temporary implementation: double write account v2
+		accountV2, err := s.accountStorage.GetAccountV2(ctx, req.Id, orgID)
+		if err != nil {
+			return err
+		}
+		accountV2.PatchAccountV2EnvironmentRoles(req.EnvironmentNamespace, req.Command.Role)
+		return s.accountStorage.UpdateAccountV2(ctx, accountV2)
+	})
+	if err != nil {
 		if err == v2as.ErrAccountNotFound || err == v2as.ErrAccountUnexpectedAffectedRows {
 			dt, err := statusNotFound.WithDetails(&errdetails.LocalizedMessage{
 				Locale:  localizer.GetLocale(),
@@ -184,7 +257,12 @@ func (s *AccountService) EnableAccount(
 	req *accountproto.EnableAccountRequest,
 ) (*accountproto.EnableAccountResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.Account_OWNER, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkOrganizationRoleByEnvironmentID(
+		ctx,
+		accountproto.AccountV2_Role_Organization_ADMIN,
+		req.EnvironmentNamespace,
+		localizer,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +276,46 @@ func (s *AccountService) EnableAccount(
 		)
 		return nil, err
 	}
-	if err := s.updateAccountMySQL(ctx, editor, req.Command, req.Id, req.EnvironmentNamespace); err != nil {
+	orgID, err := s.getOrganizationID(ctx, req.EnvironmentNamespace)
+	if err != nil {
+		s.logger.Error(
+			"Failed to get organization id",
+			log.FieldsFromImcomingContext(ctx).AddFields(
+				zap.Error(err),
+				zap.String("environmentNamespace", req.EnvironmentNamespace),
+			)...,
+		)
+		dt, err := statusInternal.WithDetails(&errdetails.LocalizedMessage{
+			Locale:  localizer.GetLocale(),
+			Message: localizer.MustLocalize(locale.InternalServerError),
+		})
+		if err != nil {
+			return nil, statusInternal.Err()
+		}
+		return nil, dt.Err()
+	}
+	err = s.accountStorage.RunInTransaction(ctx, func() error {
+		accountV1, err := s.accountStorage.GetAccount(ctx, req.Id, req.EnvironmentNamespace)
+		if err != nil {
+			return err
+		}
+		handler := command.NewAccountCommandHandler(editor, accountV1, s.publisher, req.EnvironmentNamespace)
+		if err := handler.Handle(ctx, req.Command); err != nil {
+			return err
+		}
+		err = s.accountStorage.UpdateAccount(ctx, accountV1, req.EnvironmentNamespace)
+		if err != nil {
+			return err
+		}
+		// TODO: temporary implementation: double write account v2
+		accountV2, err := s.accountStorage.GetAccountV2(ctx, req.Id, orgID)
+		if err != nil {
+			return err
+		}
+		accountV2.PatchAccountV2EnvironmentRoles(req.EnvironmentNamespace, accountV1.Role)
+		return s.accountStorage.UpdateAccountV2(ctx, accountV2)
+	})
+	if err != nil {
 		if err == v2as.ErrAccountNotFound || err == v2as.ErrAccountUnexpectedAffectedRows {
 			dt, err := statusNotFound.WithDetails(&errdetails.LocalizedMessage{
 				Locale:  localizer.GetLocale(),
@@ -233,7 +350,12 @@ func (s *AccountService) DisableAccount(
 	req *accountproto.DisableAccountRequest,
 ) (*accountproto.DisableAccountResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.Account_OWNER, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkOrganizationRoleByEnvironmentID(
+		ctx,
+		accountproto.AccountV2_Role_Organization_ADMIN,
+		req.EnvironmentNamespace,
+		localizer,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +369,46 @@ func (s *AccountService) DisableAccount(
 		)
 		return nil, err
 	}
-	if err := s.updateAccountMySQL(ctx, editor, req.Command, req.Id, req.EnvironmentNamespace); err != nil {
+	orgID, err := s.getOrganizationID(ctx, req.EnvironmentNamespace)
+	if err != nil {
+		s.logger.Error(
+			"Failed to get organization id",
+			log.FieldsFromImcomingContext(ctx).AddFields(
+				zap.Error(err),
+				zap.String("environmentNamespace", req.EnvironmentNamespace),
+			)...,
+		)
+		dt, err := statusInternal.WithDetails(&errdetails.LocalizedMessage{
+			Locale:  localizer.GetLocale(),
+			Message: localizer.MustLocalize(locale.InternalServerError),
+		})
+		if err != nil {
+			return nil, statusInternal.Err()
+		}
+		return nil, dt.Err()
+	}
+	err = s.accountStorage.RunInTransaction(ctx, func() error {
+		accountV1, err := s.accountStorage.GetAccount(ctx, req.Id, req.EnvironmentNamespace)
+		if err != nil {
+			return err
+		}
+		handler := command.NewAccountCommandHandler(editor, accountV1, s.publisher, req.EnvironmentNamespace)
+		if err := handler.Handle(ctx, req.Command); err != nil {
+			return err
+		}
+		err = s.accountStorage.UpdateAccount(ctx, accountV1, req.EnvironmentNamespace)
+		if err != nil {
+			return err
+		}
+		// TODO: temporary implementation: double write account v2
+		accountV2, err := s.accountStorage.GetAccountV2(ctx, req.Id, orgID)
+		if err != nil {
+			return err
+		}
+		accountV2.RemoveAccountV2EnvironmentRole(req.EnvironmentNamespace)
+		return s.accountStorage.UpdateAccountV2(ctx, accountV2)
+	})
+	if err != nil {
 		if err == v2as.ErrAccountNotFound || err == v2as.ErrAccountUnexpectedAffectedRows {
 			dt, err := statusNotFound.WithDetails(&errdetails.LocalizedMessage{
 				Locale:  localizer.GetLocale(),
@@ -277,31 +438,12 @@ func (s *AccountService) DisableAccount(
 	return &accountproto.DisableAccountResponse{}, nil
 }
 
-func (s *AccountService) updateAccountMySQL(
-	ctx context.Context,
-	editor *eventproto.Editor,
-	cmd command.Command,
-	id, environmentNamespace string,
-) error {
-	return s.accountStorage.RunInTransaction(ctx, func() error {
-		account, err := s.accountStorage.GetAccount(ctx, id, environmentNamespace)
-		if err != nil {
-			return err
-		}
-		handler := command.NewAccountCommandHandler(editor, account, s.publisher, environmentNamespace)
-		if err := handler.Handle(ctx, cmd); err != nil {
-			return err
-		}
-		return s.accountStorage.UpdateAccount(ctx, account, environmentNamespace)
-	})
-}
-
 func (s *AccountService) GetAccount(
 	ctx context.Context,
 	req *accountproto.GetAccountRequest,
 ) (*accountproto.GetAccountResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkRole(ctx, accountproto.Account_VIEWER, req.EnvironmentNamespace, localizer)
+	_, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_VIEWER, req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -364,7 +506,7 @@ func (s *AccountService) ListAccounts(
 	req *accountproto.ListAccountsRequest,
 ) (*accountproto.ListAccountsResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkRole(ctx, accountproto.Account_VIEWER, req.EnvironmentNamespace, localizer)
+	_, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_VIEWER, req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -465,6 +607,22 @@ func (s *AccountService) newAccountListOrders(
 		direction = mysql.OrderDirectionDesc
 	}
 	return []*mysql.Order{mysql.NewOrder(column, direction)}, nil
+}
+
+func (s *AccountService) getOrganizationID(
+	ctx context.Context,
+	environmentNamespace string,
+) (string, error) {
+	environments, err := s.listEnvironments(ctx)
+	if err != nil {
+		return "", err
+	}
+	for _, e := range environments {
+		if e.Id == environmentNamespace {
+			return e.OrganizationId, nil
+		}
+	}
+	return "", statusEnvironmentNotFound.Err()
 }
 
 func (s *AccountService) CreateAccountV2(

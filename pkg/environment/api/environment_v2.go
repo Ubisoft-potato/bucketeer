@@ -35,7 +35,7 @@ import (
 
 var (
 	maxEnvironmentNameLength = 50
-	environmentUrlCodeRegex  = regexp.MustCompile("^[a-z0-9-_.]{1,50}$")
+	environmentUrlCodeRegex  = regexp.MustCompile("^[a-z0-9-]{1,50}$")
 )
 
 func (s *EnvironmentService) GetEnvironmentV2(
@@ -97,6 +97,9 @@ func (s *EnvironmentService) ListEnvironmentsV2(
 	var whereParts []mysql.WherePart
 	if req.ProjectId != "" {
 		whereParts = append(whereParts, mysql.NewFilter("project_id", "=", req.ProjectId))
+	}
+	if req.OrganizationId != "" {
+		whereParts = append(whereParts, mysql.NewFilter("organization_id", "=", req.OrganizationId))
 	}
 	if req.Archived != nil {
 		whereParts = append(whereParts, mysql.NewFilter("archived", "=", req.Archived.Value))

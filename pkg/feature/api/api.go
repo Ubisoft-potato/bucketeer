@@ -28,7 +28,6 @@ import (
 	autoopsclient "github.com/bucketeer-io/bucketeer/pkg/autoops/client"
 	"github.com/bucketeer-io/bucketeer/pkg/cache"
 	cachev3 "github.com/bucketeer-io/bucketeer/pkg/cache/v3"
-	"github.com/bucketeer-io/bucketeer/pkg/crypto"
 	experimentclient "github.com/bucketeer-io/bucketeer/pkg/experiment/client"
 	"github.com/bucketeer-io/bucketeer/pkg/locale"
 	"github.com/bucketeer-io/bucketeer/pkg/log"
@@ -62,7 +61,6 @@ type FeatureService struct {
 	segmentUsersPublisher publisher.Publisher
 	domainPublisher       publisher.Publisher
 	flightgroup           singleflight.Group
-	triggerCryptoUtil     crypto.EncrypterDecrypter
 	triggerURL            string
 	opts                  *options
 	logger                *zap.Logger
@@ -76,7 +74,6 @@ func NewFeatureService(
 	v3Cache cache.MultiGetCache,
 	segmentUsersPublisher publisher.Publisher,
 	domainPublisher publisher.Publisher,
-	triggerCryptoUtil crypto.EncrypterDecrypter,
 	triggerURL string,
 	opts ...Option,
 ) *FeatureService {
@@ -95,7 +92,6 @@ func NewFeatureService(
 		segmentUsersCache:     cachev3.NewSegmentUsersCache(v3Cache),
 		segmentUsersPublisher: segmentUsersPublisher,
 		domainPublisher:       domainPublisher,
-		triggerCryptoUtil:     triggerCryptoUtil,
 		triggerURL:            triggerURL,
 		opts:                  dopts,
 		logger:                dopts.logger.Named("api"),
@@ -108,16 +104,24 @@ func (s *FeatureService) Register(server *grpc.Server) {
 
 func (s *FeatureService) checkRole(
 	ctx context.Context,
-	requiredRole accountproto.Account_Role,
+	requiredRole accountproto.AccountV2_Role_Environment,
 	environmentNamespace string,
 	localizer locale.Localizer,
 ) (*eventproto.Editor, error) {
-	editor, err := role.CheckRole(ctx, requiredRole, func(email string) (*accountproto.GetAccountResponse, error) {
-		return s.accountClient.GetAccount(ctx, &accountproto.GetAccountRequest{
-			Email:                email,
-			EnvironmentNamespace: environmentNamespace,
+	editor, err := role.CheckRole(
+		ctx,
+		requiredRole,
+		environmentNamespace,
+		func(email string) (*accountproto.AccountV2, error) {
+			resp, err := s.accountClient.GetAccountV2ByEnvironmentID(ctx, &accountproto.GetAccountV2ByEnvironmentIDRequest{
+				Email:         email,
+				EnvironmentId: environmentNamespace,
+			})
+			if err != nil {
+				return nil, err
+			}
+			return resp.Account, nil
 		})
-	})
 	if err != nil {
 		switch status.Code(err) {
 		case codes.Unauthenticated:

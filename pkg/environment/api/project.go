@@ -39,7 +39,7 @@ import (
 
 var (
 	maxProjectNameLength = 50
-	projectUrlCodeRegex  = regexp.MustCompile("^[a-z0-9-_.]{1,50}$")
+	projectUrlCodeRegex  = regexp.MustCompile("^[a-z0-9-]{1,50}$")
 
 	//nolint:lll
 	emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
@@ -120,6 +120,9 @@ func (s *EnvironmentService) ListProjects(
 		return nil, err
 	}
 	whereParts := []mysql.WherePart{}
+	if req.OrganizationId != "" {
+		whereParts = append(whereParts, mysql.NewFilter("organization_id", "=", req.OrganizationId))
+	}
 	if req.Disabled != nil {
 		whereParts = append(whereParts, mysql.NewFilter("disabled", "=", req.Disabled.Value))
 	}
@@ -238,7 +241,7 @@ func (s *EnvironmentService) CreateProject(
 	urlCode := strings.TrimSpace(req.Command.UrlCode)
 	// TODO: Temporary implementations that create Organization at the same time as Project.
 	// This should be removed when the Organization management page is added.
-	organization, err := domain.NewOrganization(name, urlCode, req.Command.Description, false)
+	organization, err := domain.NewOrganization(name, urlCode, req.Command.Description, false, false)
 	if err != nil {
 		s.logger.Error(
 			"Failed to create organization",
@@ -434,7 +437,7 @@ func (s *EnvironmentService) CreateTrialProject(
 	}
 	// TODO: Temporary implementations that create Organization at the same time as Project.
 	// This should be removed when the Organization management page is added.
-	organization, err := domain.NewOrganization(name, urlCode, "", true)
+	organization, err := domain.NewOrganization(name, urlCode, "", true, false)
 	if err != nil {
 		s.logger.Error(
 			"Failed to create organization",
@@ -598,19 +601,19 @@ func (s *EnvironmentService) createTrialEnvironmentsAndAccounts(
 	if getAdminAccountRes != nil && getAdminAccountRes.Account != nil {
 		adminAccountExists = true
 	}
-	envIDs := []string{
-		fmt.Sprintf("%s-development", project.Name),
-		fmt.Sprintf("%s-staging", project.Name),
-		fmt.Sprintf("%s-production", project.Name),
+	envNames := []string{
+		"Development",
+		"Production",
 	}
-	for _, envID := range envIDs {
+	for _, name := range envNames {
+		envURLCode := fmt.Sprintf("%s-%s", project.UrlCode, strings.ToLower(name))
 		createEnvCmdV2 := &environmentproto.CreateEnvironmentV2Command{
-			Name:        envID,
-			UrlCode:     envID,
+			Name:        name,
+			UrlCode:     envURLCode,
 			ProjectId:   project.Id,
 			Description: "",
 		}
-		envV2, err := domain.NewEnvironmentV2(envID, envID, "", project.Id, project.OrganizationId, s.logger)
+		envV2, err := domain.NewEnvironmentV2(name, envURLCode, "", project.Id, project.OrganizationId, s.logger)
 		if err != nil {
 			return err
 		}

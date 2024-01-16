@@ -101,13 +101,19 @@ func createFeatureService(c *gomock.Controller) *FeatureService {
 	p.EXPECT().Publish(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	p.EXPECT().PublishMulti(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	a := accountclientmock.NewMockClient(c)
-	ar := &accountproto.GetAccountResponse{
-		Account: &accountproto.Account{
-			Email: "email",
-			Role:  accountproto.Account_VIEWER,
+	ar := &accountproto.GetAccountV2ByEnvironmentIDResponse{
+		Account: &accountproto.AccountV2{
+			Email:            "email",
+			OrganizationRole: accountproto.AccountV2_Role_Organization_ADMIN,
+			EnvironmentRoles: []*accountproto.AccountV2_EnvironmentRole{
+				{
+					EnvironmentId: "ns0",
+					Role:          accountproto.AccountV2_Role_Environment_EDITOR,
+				},
+			},
 		},
 	}
-	a.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(ar, nil).AnyTimes()
+	a.EXPECT().GetAccountV2ByEnvironmentID(gomock.Any(), gomock.Any()).Return(ar, nil).AnyTimes()
 	e := experimentclientmock.NewMockClient(c)
 	e.EXPECT().ListExperiments(gomock.Any(), gomock.Any()).Return(&experimentproto.ListExperimentsResponse{}, nil).AnyTimes()
 	at := autoopsclientmock.NewMockClient(c)
@@ -122,7 +128,6 @@ func createFeatureService(c *gomock.Controller) *FeatureService {
 		p,
 		p,
 		singleflight.Group{},
-		&dummyWebhookCryptoUtil{},
 		"http://localhost",
 		&defaultOptions,
 		defaultOptions.logger,
@@ -147,7 +152,6 @@ func createFeatureServiceNew(c *gomock.Controller) *FeatureService {
 		featuresCache:         cachev3mock.NewMockFeaturesCache(c),
 		segmentUsersPublisher: segmentUsersPublisher,
 		domainPublisher:       domainPublisher,
-		triggerCryptoUtil:     &dummyWebhookCryptoUtil{},
 		triggerURL:            "http://localhost",
 		opts:                  &defaultOptions,
 		logger:                defaultOptions.logger,

@@ -20,15 +20,12 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
 	featureproto "github.com/bucketeer-io/bucketeer/proto/feature"
 )
-
-var authorizationKey = "authorization"
 
 func TestCreateFeatureFlagTrigger(t *testing.T) {
 	t.Parallel()
@@ -60,6 +57,29 @@ func TestCreateFeatureFlagTrigger(t *testing.T) {
 	if resp.GetUrl() == "" {
 		t.Fatal("unexpected empty url")
 	}
+	createFlagTriggerWithoutDescCmd := newCreateFlagTriggerCmd(
+		cmd.Id,
+		"",
+		featureproto.FlagTrigger_Action_ON,
+	)
+	resp = createFeatureFlagTrigger(t, client, createFlagTriggerWithoutDescCmd)
+	if resp.FlagTrigger.FeatureId != cmd.Id {
+		t.Fatalf("unexpected flag feature id: %s, feature id: %s", resp.FlagTrigger.FeatureId, cmd.Id)
+	}
+	if resp.FlagTrigger.Type != createFlagTriggerWithoutDescCmd.Type {
+		t.Fatalf("unexpected trigger type: %s, type: %s",
+			resp.FlagTrigger.Type, createFlagTriggerWithoutDescCmd.Type)
+	}
+	if resp.FlagTrigger.Action != createFlagTriggerWithoutDescCmd.Action {
+		t.Fatalf("unexpected trigger action: %s, action: %s",
+			resp.FlagTrigger.Action, createFlagTriggerWithoutDescCmd.Action)
+	}
+	if resp.FlagTrigger.Description != "" {
+		t.Fatalf("unexpected trigger description: %s, ", resp.FlagTrigger.Description)
+	}
+	if resp.GetUrl() == "" {
+		t.Fatal("unexpected empty url")
+	}
 }
 
 func TestUpdateFlagTrigger(t *testing.T) {
@@ -75,12 +95,14 @@ func TestUpdateFlagTrigger(t *testing.T) {
 		featureproto.FlagTrigger_Action_ON,
 	)
 	createResp := createFeatureFlagTrigger(t, client, createFlagTriggerCommand)
+	// Wait for updating to change timestamp in description
+	time.Sleep(1 * time.Second)
 	// Update flag trigger
 	updateFlagTriggerReq := &featureproto.UpdateFlagTriggerRequest{
 		Id:                   createResp.FlagTrigger.Id,
 		EnvironmentNamespace: *environmentNamespace,
 		ChangeFlagTriggerDescriptionCommand: &featureproto.ChangeFlagTriggerDescriptionCommand{
-			Description: "change flag trigger description test",
+			Description: newTriggerDescription(t),
 		},
 	}
 	_, err := client.UpdateFlagTrigger(context.Background(), updateFlagTriggerReq)
@@ -356,10 +378,6 @@ func TestFeatureFlagWebhook(t *testing.T) {
 }
 
 func sendPostRequestIgnoreSSL(targetURL string) (*http.Response, error) {
-	data, err := os.ReadFile(*serviceTokenPath)
-	if err != nil {
-		return nil, err
-	}
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
@@ -368,7 +386,6 @@ func sendPostRequestIgnoreSSL(targetURL string) (*http.Response, error) {
 		},
 	}
 	req, err := http.NewRequest("POST", targetURL, strings.NewReader(""))
-	req.Header.Add(authorizationKey, fmt.Sprintf("bearer %s", string(data)))
 	if err != nil {
 		return nil, err
 	}
@@ -424,8 +441,9 @@ func createFeatureFlagTrigger(
 
 func newTriggerDescription(t *testing.T) string {
 	t.Helper()
+	now := time.Now()
 	if *testID != "" {
-		return fmt.Sprintf("%s-%s-trigger-description", prefixID, *testID)
+		return fmt.Sprintf("%s-%s-%v-trigger-description", prefixID, *testID, now.Unix())
 	}
-	return fmt.Sprintf("%s-trigger-description", prefixID)
+	return fmt.Sprintf("%s-%v-trigger-description", prefixID, now.Unix())
 }
