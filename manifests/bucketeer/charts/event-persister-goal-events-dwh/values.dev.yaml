@@ -12,6 +12,11 @@ env:
   logLevel: debug
   port: 9090
   metricsPort: 9002
+  mysqlUser: bucketeer
+  mysqlPass: bucketeer
+  mysqlHost: localenv-mysql-headless.default.svc.cluster.local
+  mysqlPort: 3306
+  mysqlDbName: bucketeer
   timezone: UTC
   # egress services
   experimentService: localhost:9001

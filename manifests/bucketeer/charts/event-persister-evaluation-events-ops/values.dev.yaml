@@ -16,6 +16,11 @@ env:
   metricsPort: 9002
   # pubsub
   project: bucketeer-test
+  mysqlUser: bucketeer
+  mysqlPass: bucketeer
+  mysqlHost: localenv-mysql-headless.default.svc.cluster.local
+  mysqlPort: 3306
+  mysqlDbName: bucketeer
   topic: evaluation
   subscription: evaluation-ops-sub
   pullerNumGoroutines: 5
