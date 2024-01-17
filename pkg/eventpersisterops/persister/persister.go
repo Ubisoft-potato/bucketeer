@@ -283,7 +283,7 @@ func (p *persister) subscribe(subscription chan struct{}) {
 }
 
 func (p *persister) unsubscribe() {
-	err := p.client.DetachSubscription(p.subscription)
+	err := p.client.DetachSubscription(p.rateLimitedPuller.SubscriptionName())
 	if err != nil {
 		p.logger.Error("Failed to detach subscription", zap.Error(err))
 	}

@@ -292,14 +292,11 @@ func (c *Client) DeleteSubscriptionIfExist(id string) error {
 	return c.DeleteSubscription(id)
 }
 
-func (c *Client) DetachSubscription(id string) error {
+func (c *Client) DetachSubscription(name string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	sub := c.Client.Subscription(id)
-	// Get the subscription Name.
-	subName := sub.String()
 	// Detach the subscription
-	_, err := c.Client.DetachSubscription(ctx, subName)
+	_, err := c.Client.DetachSubscription(ctx, name)
 	if err != nil {
 		return err
 	}
