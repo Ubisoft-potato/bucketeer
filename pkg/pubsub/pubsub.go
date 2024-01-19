@@ -17,7 +17,6 @@ package pubsub
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"time"
 
