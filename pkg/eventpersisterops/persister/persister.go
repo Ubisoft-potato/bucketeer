@@ -17,6 +17,7 @@ package persister
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -41,6 +42,11 @@ var (
 	ErrNoExperiments          = errors.New("eventpersister: no experiments")
 	ErrNothingToLink          = errors.New("eventpersister: nothing to link")
 	ErrUnexpectedMessageType  = errors.New("eventpersister: unexpected message type")
+)
+
+const (
+	notFound      = "NotFound"
+	alreadyExists = "AlreadyExists"
 )
 
 type eventMap map[string]proto.Message
@@ -191,8 +197,13 @@ func (p *persister) Run() error {
 				p.logger.Debug("There are untriggered auto ops rules")
 				if !p.IsRunning() {
 					p.group = errgroup.Group{}
-					err := p.createNewPuller()
+					err = p.createNewPuller()
 					if err != nil {
+						if strings.Contains(err.Error(), alreadyExists) {
+							p.logger.Debug("Subscription already exists",
+								zap.String("subscription", p.subscription))
+							continue
+						}
 						p.logger.Error("Failed to create new puller", zap.Error(err))
 						return err
 					}
@@ -204,6 +215,13 @@ func (p *persister) Run() error {
 				if p.IsRunning() {
 					p.logger.Debug("Puller is running, stop pulling messages")
 					p.unsubscribe()
+				}
+				// delete subscription if subscription exists
+				err := p.client.DeleteSubscriptionIfExist(p.subscription)
+				if err != nil {
+					p.logger.Error("Failed to delete subscription", zap.Error(err))
+				} else {
+					p.logger.Debug("Subscription deleted", zap.String("subscription", p.subscription))
 				}
 			}
 			timer.Reset(p.opts.checkInterval)
@@ -262,6 +280,12 @@ func (p *persister) subscribe(subscription chan struct{}) {
 			p.group.Go(func() error {
 				err := p.rateLimitedPuller.Run(ctx)
 				if err != nil {
+					if strings.Contains(err.Error(), notFound) {
+						p.logger.Debug("Subscription does not exist",
+							zap.String("subscription", p.subscription))
+						p.unsubscribe()
+						return nil
+					}
 					p.logger.Error("Puller pulling messages error", zap.Error(err))
 					return err
 				}
@@ -283,10 +307,6 @@ func (p *persister) subscribe(subscription chan struct{}) {
 }
 
 func (p *persister) unsubscribe() {
-	err := p.client.DetachSubscription(p.rateLimitedPuller.SubscriptionName())
-	if err != nil {
-		p.logger.Error("Failed to detach subscription", zap.Error(err))
-	}
 	p.runningPullerCancel()
 }
 

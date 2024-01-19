@@ -287,18 +287,8 @@ func (c *Client) DeleteSubscriptionIfExist(id string) error {
 		return err
 	}
 	if !exists {
-		return fmt.Errorf("subscription %s does not exist", id)
+		c.logger.Debug("Subscription does not exist", zap.String("subscription", id))
+		return nil
 	}
 	return c.DeleteSubscription(id)
-}
-
-func (c *Client) DetachSubscription(name string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	// Detach the subscription
-	_, err := c.Client.DetachSubscription(ctx, name)
-	if err != nil {
-		return err
-	}
-	return nil
 }
