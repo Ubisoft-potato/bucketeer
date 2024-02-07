@@ -19,6 +19,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/bucketeer-io/bucketeer/pkg/batch/migration"
+
 	"go.uber.org/zap"
 	"gopkg.in/alecthomas/kingpin.v2"
 
@@ -416,6 +418,10 @@ func (s *server) Run(ctx context.Context, metrics metrics.Metrics, logger *zap.L
 			*s.pullerMaxOutstandingBytes,
 			notification.WithLogger(logger),
 			notification.WithMetrics(registerer),
+		),
+		migration.NewMySQLSchemaMigration(
+			*s.mysqlUser, *s.mysqlPass, *s.mysqlHost, *s.mysqlDBName, *s.mysqlPort,
+			logger,
 		),
 		logger,
 	)
