@@ -3072,6 +3072,18 @@
                 "integer": 12
               }
             ]
+          },
+          {
+            "name": "MigrationRequest.Direction",
+            "enum_fields": [
+              {
+                "name": "UP"
+              },
+              {
+                "name": "DOWN",
+                "integer": 1
+              }
+            ]
           }
         ],
         "messages": [
@@ -3087,6 +3099,42 @@
           },
           {
             "name": "BatchJobResponse"
+          },
+          {
+            "name": "MigrationVersionRequest"
+          },
+          {
+            "name": "MigrationVersionResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "version",
+                "type": "int32"
+              },
+              {
+                "id": 2,
+                "name": "dirty",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "MigrationRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "direction",
+                "type": "Direction"
+              },
+              {
+                "id": 2,
+                "name": "steps",
+                "type": "int32"
+              }
+            ]
+          },
+          {
+            "name": "MigrationResponse"
           }
         ],
         "services": [
@@ -3097,6 +3145,16 @@
                 "name": "ExecuteBatchJob",
                 "in_type": "BatchJobRequest",
                 "out_type": "BatchJobResponse"
+              },
+              {
+                "name": "CurrentMigrationVersion",
+                "in_type": "MigrationVersionRequest",
+                "out_type": "MigrationVersionResponse"
+              },
+              {
+                "name": "Migrate",
+                "in_type": "MigrationRequest",
+                "out_type": "MigrationResponse"
               }
             ]
           }
@@ -4790,6 +4848,26 @@
             ]
           },
           {
+            "name": "RedirectionRequestExceptionEvent",
+            "fields": [
+              {
+                "id": 1,
+                "name": "api_id",
+                "type": "ApiId"
+              }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 2,
+                  "name": "labels",
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          {
             "name": "BadRequestErrorMetricsEvent",
             "fields": [
               {
@@ -4851,6 +4929,26 @@
           },
           {
             "name": "NotFoundErrorMetricsEvent",
+            "fields": [
+              {
+                "id": 1,
+                "name": "api_id",
+                "type": "ApiId"
+              }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 2,
+                  "name": "labels",
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          {
+            "name": "PayloadTooLargeExceptionEvent",
             "fields": [
               {
                 "id": 1,

@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ func TestSign(t *testing.T) {
 			require.True(t, tc.token.Expiry.Equal(parsedToken.Expiry), des)
 			require.True(t, tc.token.IssuedAt.Equal(parsedToken.IssuedAt), des)
 			require.Equal(t, tc.token.Email, parsedToken.Email, des)
-			require.Equal(t, tc.token.AdminRole, parsedToken.AdminRole, des)
+			require.Equal(t, tc.token.IsSystemAdmin, parsedToken.IsSystemAdmin, des)
 		} else {
 			require.Error(t, err, des)
 		}

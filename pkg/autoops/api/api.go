@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import (
 	v2as "github.com/bucketeer-io/bucketeer/pkg/autoops/storage/v2"
 	experimentclient "github.com/bucketeer-io/bucketeer/pkg/experiment/client"
 	featureclient "github.com/bucketeer-io/bucketeer/pkg/feature/client"
+	ftstorage "github.com/bucketeer-io/bucketeer/pkg/feature/storage/v2"
 	"github.com/bucketeer-io/bucketeer/pkg/locale"
 	"github.com/bucketeer-io/bucketeer/pkg/log"
 	v2os "github.com/bucketeer-io/bucketeer/pkg/opsevent/storage/v2"
@@ -104,7 +105,9 @@ func (s *AutoOpsService) CreateAutoOpsRule(
 	req *autoopsproto.CreateAutoOpsRuleRequest,
 ) (*autoopsproto.CreateAutoOpsRuleResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -379,7 +382,9 @@ func (s *AutoOpsService) DeleteAutoOpsRule(
 	req *autoopsproto.DeleteAutoOpsRuleRequest,
 ) (*autoopsproto.DeleteAutoOpsRuleResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -474,7 +479,9 @@ func (s *AutoOpsService) UpdateAutoOpsRule(
 	req *autoopsproto.UpdateAutoOpsRuleRequest,
 ) (*autoopsproto.UpdateAutoOpsRuleResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -758,7 +765,9 @@ func (s *AutoOpsService) GetAutoOpsRule(
 	req *autoopsproto.GetAutoOpsRuleRequest,
 ) (*autoopsproto.GetAutoOpsRuleResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_VIEWER, req.EnvironmentNamespace, localizer)
+	_, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -824,7 +833,9 @@ func (s *AutoOpsService) ListAutoOpsRules(
 	req *autoopsproto.ListAutoOpsRulesRequest,
 ) (*autoopsproto.ListAutoOpsRulesResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_VIEWER, req.EnvironmentNamespace, localizer)
+	_, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -915,7 +926,9 @@ func (s *AutoOpsService) ExecuteAutoOps(
 	req *autoopsproto.ExecuteAutoOpsRequest,
 ) (*autoopsproto.ExecuteAutoOpsResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -952,6 +965,12 @@ func (s *AutoOpsService) ExecuteAutoOps(
 		if err != nil {
 			return err
 		}
+		ftStorage := ftstorage.NewFeatureStorage(tx)
+		feature, err := ftStorage.GetFeature(ctx, autoOpsRule.FeatureId, req.EnvironmentNamespace)
+		if err != nil {
+			return err
+		}
+		prStorage := v2as.NewProgressiveRolloutStorage(tx)
 		handler := command.NewAutoOpsCommandHandler(editor, autoOpsRule, s.publisher, req.EnvironmentNamespace)
 		if err := handler.Handle(ctx, req.ChangeAutoOpsRuleTriggeredAtCommand); err != nil {
 			return err
@@ -970,7 +989,41 @@ func (s *AutoOpsService) ExecuteAutoOps(
 			}
 			return err
 		}
-		return ExecuteAutoOpsRuleOperation(ctx, req.EnvironmentNamespace, autoOpsRule, s.featureClient, s.logger, localizer)
+		// Stop the running progressive rollout if the operation type is disable
+		if autoOpsRule.OpsType == autoopsproto.OpsType_DISABLE_FEATURE {
+			if err := s.stopProgressiveRollout(
+				ctx,
+				req.EnvironmentNamespace,
+				autoOpsRule,
+				prStorage,
+				localizer,
+			); err != nil {
+				return err
+			}
+		}
+		if err := executeAutoOpsRuleOperation(
+			ctx,
+			req.EnvironmentNamespace,
+			autoOpsRule,
+			feature,
+			s.logger,
+			localizer,
+		); err != nil {
+			return err
+		}
+		if err := ftStorage.UpdateFeature(ctx, feature, req.EnvironmentNamespace); err != nil {
+			s.logger.Error(
+				"Failed to update feature flag",
+				log.FieldsFromImcomingContext(ctx).AddFields(
+					zap.Error(err),
+					zap.String("environmentNamespace", req.EnvironmentNamespace),
+					zap.String("autoOpsRuleId", autoOpsRule.Id),
+					zap.String("featureId", autoOpsRule.FeatureId),
+				)...,
+			)
+			return err
+		}
+		return nil
 	})
 	if err != nil {
 		if err == v2as.ErrAutoOpsRuleNotFound {
@@ -1008,6 +1061,69 @@ func (s *AutoOpsService) ExecuteAutoOps(
 		return nil, dt.Err()
 	}
 	return &autoopsproto.ExecuteAutoOpsResponse{AlreadyTriggered: false}, nil
+}
+
+func (s *AutoOpsService) stopProgressiveRollout(
+	ctx context.Context,
+	environmentNamespace string,
+	autoOpsRule *domain.AutoOpsRule,
+	storage v2as.ProgressiveRolloutStorage,
+	localizer locale.Localizer,
+) error {
+	// Check what operation is being executed
+	// and the set progressive rollout `stoppedBy`
+	var stoppedBy autoopsproto.ProgressiveRollout_StoppedBy
+	hasScheduleOps, err := autoOpsRule.HasScheduleOps()
+	if err != nil {
+		s.logger.Error(
+			"Failed to check operation type",
+			log.FieldsFromImcomingContext(ctx).AddFields(
+				zap.Error(err),
+				zap.String("environmentNamespace", environmentNamespace),
+				zap.String("autoOpsRuleId", autoOpsRule.Id),
+				zap.String("featureId", autoOpsRule.FeatureId),
+			)...,
+		)
+		dt, err := statusInternal.WithDetails(&errdetails.LocalizedMessage{
+			Locale:  localizer.GetLocale(),
+			Message: localizer.MustLocalize(locale.InternalServerError),
+		})
+		if err != nil {
+			return statusInternal.Err()
+		}
+		return dt.Err()
+	}
+	if hasScheduleOps {
+		stoppedBy = autoopsproto.ProgressiveRollout_OPS_KILL_SWITCH
+	} else {
+		stoppedBy = autoopsproto.ProgressiveRollout_OPS_SCHEDULE
+	}
+	if err := executeStopProgressiveRolloutOperation(
+		ctx,
+		storage,
+		s.convToInterfaceSlice([]string{autoOpsRule.FeatureId}),
+		environmentNamespace,
+		stoppedBy,
+	); err != nil {
+		s.logger.Error(
+			"Failed to stop progressive rollout",
+			log.FieldsFromImcomingContext(ctx).AddFields(
+				zap.Error(err),
+				zap.String("environmentNamespace", environmentNamespace),
+				zap.String("autoOpsRuleId", autoOpsRule.Id),
+				zap.String("featureId", autoOpsRule.FeatureId),
+			)...,
+		)
+		dt, err := statusInternal.WithDetails(&errdetails.LocalizedMessage{
+			Locale:  localizer.GetLocale(),
+			Message: localizer.MustLocalize(locale.InternalServerError),
+		})
+		if err != nil {
+			return statusInternal.Err()
+		}
+		return dt.Err()
+	}
+	return nil
 }
 
 func (s *AutoOpsService) validateExecuteAutoOpsRequest(
@@ -1099,7 +1215,9 @@ func (s *AutoOpsService) ListOpsCounts(
 	req *autoopsproto.ListOpsCountsRequest,
 ) (*autoopsproto.ListOpsCountsResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_VIEWER, req.EnvironmentNamespace, localizer)
+	_, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_VIEWER,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -1224,13 +1342,13 @@ func (s *AutoOpsService) getGoal(
 	return resp.Goal, nil
 }
 
-func (s *AutoOpsService) checkRole(
+func (s *AutoOpsService) checkEnvironmentRole(
 	ctx context.Context,
 	requiredRole accountproto.AccountV2_Role_Environment,
 	environmentNamespace string,
 	localizer locale.Localizer,
 ) (*eventproto.Editor, error) {
-	editor, err := role.CheckRole(
+	editor, err := role.CheckEnvironmentRole(
 		ctx,
 		requiredRole,
 		environmentNamespace,

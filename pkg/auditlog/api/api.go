@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -98,7 +98,9 @@ func (s *auditlogService) ListAuditLogs(
 	req *proto.ListAuditLogsRequest,
 ) (*proto.ListAuditLogsResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_VIEWER, req.EnvironmentNamespace, localizer)
+	_, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_VIEWER,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +206,7 @@ func (s *auditlogService) ListAdminAuditLogs(
 	req *proto.ListAdminAuditLogsRequest,
 ) (*proto.ListAdminAuditLogsResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkAdminRole(ctx, localizer)
+	_, err := s.checkSystemAdminRole(ctx, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +310,10 @@ func (s *auditlogService) ListFeatureHistory(
 	req *proto.ListFeatureHistoryRequest,
 ) (*proto.ListFeatureHistoryResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_VIEWER, req.EnvironmentNamespace, localizer)
+	_, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_VIEWER,
+		req.EnvironmentNamespace,
+		localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -412,13 +417,13 @@ func (s *auditlogService) newFeatureHistoryAuditLogListOrders(
 	return []*mysql.Order{mysql.NewOrder(column, direction)}, nil
 }
 
-func (s *auditlogService) checkRole(
+func (s *auditlogService) checkEnvironmentRole(
 	ctx context.Context,
 	requiredRole accountproto.AccountV2_Role_Environment,
 	environmentNamespace string,
 	localizer locale.Localizer,
 ) (*eventproto.Editor, error) {
-	editor, err := role.CheckRole(
+	editor, err := role.CheckEnvironmentRole(
 		ctx,
 		requiredRole,
 		environmentNamespace,
@@ -487,8 +492,11 @@ func (s *auditlogService) checkRole(
 	return editor, nil
 }
 
-func (s *auditlogService) checkAdminRole(ctx context.Context, localizer locale.Localizer) (*eventproto.Editor, error) {
-	editor, err := role.CheckAdminRole(ctx)
+func (s *auditlogService) checkSystemAdminRole(
+	ctx context.Context,
+	localizer locale.Localizer,
+) (*eventproto.Editor, error) {
+	editor, err := role.CheckSystemAdminRole(ctx)
 	if err != nil {
 		switch status.Code(err) {
 		case codes.Unauthenticated:

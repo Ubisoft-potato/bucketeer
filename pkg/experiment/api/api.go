@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -84,13 +84,13 @@ func (s *experimentService) Register(server *grpc.Server) {
 	proto.RegisterExperimentServiceServer(server, s)
 }
 
-func (s *experimentService) checkRole(
+func (s *experimentService) checkEnvironmentRole(
 	ctx context.Context,
 	requiredRole accountproto.AccountV2_Role_Environment,
 	environmentNamespace string,
 	localizer locale.Localizer,
 ) (*eventproto.Editor, error) {
-	editor, err := role.CheckRole(
+	editor, err := role.CheckEnvironmentRole(
 		ctx,
 		requiredRole,
 		environmentNamespace,

@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,7 +39,6 @@ import (
 	storagetesting "github.com/bucketeer-io/bucketeer/pkg/storage/testing"
 	mysqlmock "github.com/bucketeer-io/bucketeer/pkg/storage/v2/mysql/mock"
 	"github.com/bucketeer-io/bucketeer/pkg/token"
-	accountproto "github.com/bucketeer-io/bucketeer/proto/account"
 	pushproto "github.com/bucketeer-io/bucketeer/proto/push"
 )
 
@@ -559,13 +558,13 @@ func newPushServiceWithMock(t *testing.T, c *gomock.Controller, s storage.Client
 func createContextWithToken(t *testing.T) context.Context {
 	t.Helper()
 	token := &token.IDToken{
-		Issuer:    "issuer",
-		Subject:   "sub",
-		Audience:  "audience",
-		Expiry:    time.Now().AddDate(100, 0, 0),
-		IssuedAt:  time.Now(),
-		Email:     "email",
-		AdminRole: accountproto.Account_OWNER,
+		Issuer:        "issuer",
+		Subject:       "sub",
+		Audience:      "audience",
+		Expiry:        time.Now().AddDate(100, 0, 0),
+		IssuedAt:      time.Now(),
+		Email:         "email",
+		IsSystemAdmin: true,
 	}
 	ctx := context.TODO()
 	return context.WithValue(ctx, rpc.Key, token)

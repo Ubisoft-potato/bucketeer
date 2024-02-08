@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -209,8 +209,11 @@ func (s *AccountService) getOrganization(
 	return resp.Organization, nil
 }
 
-func (s *AccountService) checkAdminRole(ctx context.Context, localizer locale.Localizer) (*eventproto.Editor, error) {
-	editor, err := role.CheckAdminRole(ctx)
+func (s *AccountService) checkSystemAdminRole(
+	ctx context.Context,
+	localizer locale.Localizer,
+) (*eventproto.Editor, error) {
+	editor, err := role.CheckSystemAdminRole(ctx)
 	if err != nil {
 		switch status.Code(err) {
 		case codes.Unauthenticated:
@@ -257,13 +260,13 @@ func (s *AccountService) checkAdminRole(ctx context.Context, localizer locale.Lo
 	return editor, nil
 }
 
-func (s *AccountService) checkRole(
+func (s *AccountService) checkEnvironmentRole(
 	ctx context.Context,
 	requiredRole proto.AccountV2_Role_Environment,
 	environmentNamespace string,
 	localizer locale.Localizer,
 ) (*eventproto.Editor, error) {
-	editor, err := role.CheckRole(
+	editor, err := role.CheckEnvironmentRole(
 		ctx,
 		requiredRole,
 		environmentNamespace,

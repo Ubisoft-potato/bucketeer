@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -383,18 +383,16 @@ func (s *authService) generateToken(
 		}
 		return nil, dt.Err()
 	}
-	adminRole := accountproto.Account_UNASSIGNED
-	if hasSystemAdminOrganization(resp.Organizations) {
-		adminRole = accountproto.Account_OWNER
-	}
 	idToken := &token.IDToken{
-		Issuer:    claims.Iss,
-		Subject:   claims.Sub,
-		Audience:  claims.Aud,
-		Expiry:    time.Unix(claims.Exp, 0),
-		IssuedAt:  time.Unix(claims.Iat, 0),
-		Email:     claims.Email,
-		AdminRole: adminRole,
+		Issuer:   claims.Iss,
+		Subject:  claims.Sub,
+		Audience: claims.Aud,
+		Expiry:   time.Unix(claims.Exp, 0),
+		IssuedAt: time.Unix(claims.Iat, 0),
+		Email:    claims.Email,
+	}
+	if hasSystemAdminOrganization(resp.Organizations) {
+		idToken.IsSystemAdmin = true
 	}
 	signedIDToken, err := s.signer.Sign(idToken)
 	if err != nil {

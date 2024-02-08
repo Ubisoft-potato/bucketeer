@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -57,7 +57,9 @@ func (s *AutoOpsService) CreateProgressiveRollout(
 	req *autoopsproto.CreateProgressiveRolloutRequest,
 ) (*autoopsproto.CreateProgressiveRolloutResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +163,9 @@ func (s *AutoOpsService) GetProgressiveRollout(
 	req *autoopsproto.GetProgressiveRolloutRequest,
 ) (*autoopsproto.GetProgressiveRolloutResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_VIEWER, req.EnvironmentNamespace, localizer)
+	_, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +212,9 @@ func (s *AutoOpsService) StopProgressiveRollout(
 	req *autoopsproto.StopProgressiveRolloutRequest,
 ) (*autoopsproto.StopProgressiveRolloutResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +312,9 @@ func (s *AutoOpsService) DeleteProgressiveRollout(
 	req *autoopsproto.DeleteProgressiveRolloutRequest,
 ) (*autoopsproto.DeleteProgressiveRolloutResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -382,7 +390,9 @@ func (s *AutoOpsService) ListProgressiveRollouts(
 	req *autoopsproto.ListProgressiveRolloutsRequest,
 ) (*autoopsproto.ListProgressiveRolloutsResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_VIEWER, req.EnvironmentNamespace, localizer)
+	_, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -406,7 +416,9 @@ func (s *AutoOpsService) ExecuteProgressiveRollout(
 	req *autoopsproto.ExecuteProgressiveRolloutRequest,
 ) (*autoopsproto.ExecuteProgressiveRolloutResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -442,8 +454,8 @@ func (s *AutoOpsService) ExecuteProgressiveRollout(
 			return err
 		}
 		if err := s.checkStopStatus(progressiveRollout, localizer); err != nil {
-			s.logger.Error(
-				"Failed to execute progressive rollout",
+			s.logger.Warn(
+				"Progressive rollout is already stopped",
 				log.FieldsFromImcomingContext(ctx).AddFields(
 					zap.Error(err),
 					zap.String("environmentNamespace", req.EnvironmentNamespace),
@@ -451,7 +463,7 @@ func (s *AutoOpsService) ExecuteProgressiveRollout(
 					zap.String("featureId", progressiveRollout.FeatureId),
 				)...,
 			)
-			return err
+			return nil
 		}
 		triggered, err := s.checkAlreadyTriggered(
 			req.ChangeProgressiveRolloutTriggeredAtCommand,

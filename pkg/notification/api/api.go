@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -79,11 +79,11 @@ func (s *NotificationService) Register(server *grpc.Server) {
 	notificationproto.RegisterNotificationServiceServer(server, s)
 }
 
-func (s *NotificationService) checkAdminRole(
+func (s *NotificationService) checkSystemAdminRole(
 	ctx context.Context,
 	localizer locale.Localizer,
 ) (*eventproto.Editor, error) {
-	editor, err := role.CheckAdminRole(ctx)
+	editor, err := role.CheckSystemAdminRole(ctx)
 	if err != nil {
 		switch status.Code(err) {
 		case codes.Unauthenticated:
@@ -130,13 +130,13 @@ func (s *NotificationService) checkAdminRole(
 	return editor, nil
 }
 
-func (s *NotificationService) checkRole(
+func (s *NotificationService) checkEnvironmentRole(
 	ctx context.Context,
 	requiredRole accountproto.AccountV2_Role_Environment,
 	environmentNamespace string,
 	localizer locale.Localizer,
 ) (*eventproto.Editor, error) {
-	editor, err := role.CheckRole(
+	editor, err := role.CheckEnvironmentRole(
 		ctx,
 		requiredRole,
 		environmentNamespace,

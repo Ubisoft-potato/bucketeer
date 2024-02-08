@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -78,11 +78,11 @@ func (s *EnvironmentService) Register(server *grpc.Server) {
 	environmentproto.RegisterEnvironmentServiceServer(server, s)
 }
 
-func (s *EnvironmentService) checkAdminRole(
+func (s *EnvironmentService) checkSystemAdminRole(
 	ctx context.Context,
 	localizer locale.Localizer,
 ) (*eventproto.Editor, error) {
-	editor, err := role.CheckAdminRole(ctx)
+	editor, err := role.CheckSystemAdminRole(ctx)
 	if err != nil {
 		switch status.Code(err) {
 		case codes.Unauthenticated:

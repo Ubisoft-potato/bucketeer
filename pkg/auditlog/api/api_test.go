@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -303,8 +303,8 @@ func createAuditLogs(t *testing.T) []*proto.AuditLog {
 func createContextWithToken(t *testing.T, role accountproto.Account_Role) context.Context {
 	t.Helper()
 	token := &token.IDToken{
-		Email:     "test@example.com",
-		AdminRole: role,
+		Email:         "test@example.com",
+		IsSystemAdmin: true,
 	}
 	ctx := context.TODO()
 	return context.WithValue(ctx, rpc.Key, token)

@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@ func TestGetMeMySQL(t *testing.T) {
 		},
 		{
 			desc: "errInternal",
-			ctx:  createContextWithDefaultToken(t, accountproto.Account_OWNER),
+			ctx:  createContextWithDefaultToken(t, accountproto.Account_OWNER, true),
 			setup: func(s *AccountService) {
 				s.environmentClient.(*ecmock.MockClient).EXPECT().ListProjects(
 					gomock.Any(),
@@ -99,7 +99,7 @@ func TestGetMeMySQL(t *testing.T) {
 		},
 		{
 			desc: "success",
-			ctx:  createContextWithDefaultToken(t, accountproto.Account_EDITOR),
+			ctx:  createContextWithDefaultToken(t, accountproto.Account_EDITOR, true),
 			setup: func(s *AccountService) {
 
 				s.environmentClient.(*ecmock.MockClient).EXPECT().ListProjects(
@@ -204,7 +204,7 @@ func TestGetMyOrganizationsMySQL(t *testing.T) {
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
 
-	ctx := createContextWithDefaultToken(t, accountproto.Account_OWNER)
+	ctx := createContextWithDefaultToken(t, accountproto.Account_OWNER, true)
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})
@@ -326,7 +326,7 @@ func TestGetMyOrganizationsByEmailMySQL(t *testing.T) {
 	mockController := gomock.NewController(t)
 	defer mockController.Finish()
 
-	ctx := createContextWithDefaultToken(t, accountproto.Account_OWNER)
+	ctx := createContextWithDefaultToken(t, accountproto.Account_OWNER, true)
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{
 		"accept-language": []string{"ja"},
 	})

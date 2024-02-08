@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -804,13 +804,12 @@ func createAutoOpsService(c *gomock.Controller, db storage.Client) *AutoOpsServi
 func createContextWithTokenRoleUnassigned(t *testing.T) context.Context {
 	t.Helper()
 	token := &token.IDToken{
-		Issuer:    "issuer",
-		Subject:   "sub",
-		Audience:  "audience",
-		Expiry:    time.Now().AddDate(100, 0, 0),
-		IssuedAt:  time.Now(),
-		Email:     "email",
-		AdminRole: accountproto.Account_UNASSIGNED,
+		Issuer:   "issuer",
+		Subject:  "sub",
+		Audience: "audience",
+		Expiry:   time.Now().AddDate(100, 0, 0),
+		IssuedAt: time.Now(),
+		Email:    "email",
 	}
 	ctx := context.TODO()
 	return context.WithValue(ctx, rpc.Key, token)
@@ -819,13 +818,13 @@ func createContextWithTokenRoleUnassigned(t *testing.T) context.Context {
 func createContextWithTokenRoleOwner(t *testing.T) context.Context {
 	t.Helper()
 	token := &token.IDToken{
-		Issuer:    "issuer",
-		Subject:   "sub",
-		Audience:  "audience",
-		Expiry:    time.Now().AddDate(100, 0, 0),
-		IssuedAt:  time.Now(),
-		Email:     "email",
-		AdminRole: accountproto.Account_OWNER,
+		Issuer:        "issuer",
+		Subject:       "sub",
+		Audience:      "audience",
+		Expiry:        time.Now().AddDate(100, 0, 0),
+		IssuedAt:      time.Now(),
+		Email:         "email",
+		IsSystemAdmin: true,
 	}
 	ctx := context.TODO()
 	return context.WithValue(ctx, rpc.Key, token)

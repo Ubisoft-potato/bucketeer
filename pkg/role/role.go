@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,12 +31,12 @@ var (
 	ErrInternal         = status.Error(codes.Internal, "Internal")
 )
 
-func CheckAdminRole(ctx context.Context) (*eventproto.Editor, error) {
+func CheckSystemAdminRole(ctx context.Context) (*eventproto.Editor, error) {
 	token, ok := rpc.GetIDToken(ctx)
 	if !ok {
 		return nil, ErrUnauthenticated
 	}
-	if !token.IsAdmin() {
+	if !token.IsSystemAdmin {
 		return nil, ErrPermissionDenied
 	}
 	return &eventproto.Editor{
@@ -45,7 +45,7 @@ func CheckAdminRole(ctx context.Context) (*eventproto.Editor, error) {
 	}, nil
 }
 
-func CheckRole(
+func CheckEnvironmentRole(
 	ctx context.Context,
 	requiredRole accountproto.AccountV2_Role_Environment,
 	environmentID string,
@@ -56,7 +56,7 @@ func CheckRole(
 		return nil, ErrUnauthenticated
 	}
 	// TODO remove this condition after migration to AccountV2
-	if !token.IsAdmin() {
+	if !token.IsSystemAdmin {
 		// get account for the environment namespace
 		account, err := getAccountFunc(token.Email)
 		if err != nil {
@@ -104,7 +104,7 @@ func CheckOrganizationRole(
 		return nil, ErrUnauthenticated
 	}
 	// TODO remove this condition after migration to AccountV2
-	if token.IsAdmin() {
+	if token.IsSystemAdmin {
 		return &eventproto.Editor{
 			Email:   token.Email,
 			IsAdmin: true,
@@ -122,6 +122,6 @@ func CheckOrganizationRole(
 	}
 	return &eventproto.Editor{
 		Email:   token.Email,
-		IsAdmin: token.IsAdmin(),
+		IsAdmin: token.IsSystemAdmin,
 	}, nil
 }

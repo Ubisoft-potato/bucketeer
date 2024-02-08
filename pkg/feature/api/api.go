@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	v2fs "github.com/bucketeer-io/bucketeer/pkg/feature/storage/v2"
+	featureproto "github.com/bucketeer-io/bucketeer/proto/feature"
+
 	accountclient "github.com/bucketeer-io/bucketeer/pkg/account/client"
 	autoopsclient "github.com/bucketeer-io/bucketeer/pkg/autoops/client"
 	"github.com/bucketeer-io/bucketeer/pkg/cache"
@@ -36,7 +39,6 @@ import (
 	"github.com/bucketeer-io/bucketeer/pkg/storage/v2/mysql"
 	accountproto "github.com/bucketeer-io/bucketeer/proto/account"
 	eventproto "github.com/bucketeer-io/bucketeer/proto/event/domain"
-	featureproto "github.com/bucketeer-io/bucketeer/proto/feature"
 )
 
 type options struct {
@@ -52,6 +54,8 @@ func WithLogger(l *zap.Logger) Option {
 }
 
 type FeatureService struct {
+	flagTriggerStorage    v2fs.FlagTriggerStorage
+	featureStorage        v2fs.FeatureStorage
 	mysqlClient           mysql.Client
 	accountClient         accountclient.Client
 	experimentClient      experimentclient.Client
@@ -84,6 +88,8 @@ func NewFeatureService(
 		opt(dopts)
 	}
 	return &FeatureService{
+		flagTriggerStorage:    v2fs.NewFlagTriggerStorage(mysqlClient),
+		featureStorage:        v2fs.NewFeatureStorage(mysqlClient),
 		mysqlClient:           mysqlClient,
 		accountClient:         accountClient,
 		experimentClient:      experimentClient,
@@ -102,13 +108,13 @@ func (s *FeatureService) Register(server *grpc.Server) {
 	featureproto.RegisterFeatureServiceServer(server, s)
 }
 
-func (s *FeatureService) checkRole(
+func (s *FeatureService) checkEnvironmentRole(
 	ctx context.Context,
 	requiredRole accountproto.AccountV2_Role_Environment,
 	environmentNamespace string,
 	localizer locale.Localizer,
 ) (*eventproto.Editor, error) {
-	editor, err := role.CheckRole(
+	editor, err := role.CheckEnvironmentRole(
 		ctx,
 		requiredRole,
 		environmentNamespace,

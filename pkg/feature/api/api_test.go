@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ import (
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 	"golang.org/x/sync/singleflight"
+
+	"github.com/bucketeer-io/bucketeer/pkg/feature/storage/v2/mock"
 
 	accountclientmock "github.com/bucketeer-io/bucketeer/pkg/account/client/mock"
 	aoclientmock "github.com/bucketeer-io/bucketeer/pkg/autoops/client/mock"
@@ -70,13 +72,13 @@ func (u *dummyWebhookCryptoUtil) Decrypt(ctx context.Context, data []byte) ([]by
 
 func createContextWithToken() context.Context {
 	token := &token.IDToken{
-		Issuer:    "issuer",
-		Subject:   "sub",
-		Audience:  "audience",
-		Expiry:    time.Now().AddDate(100, 0, 0),
-		IssuedAt:  time.Now(),
-		Email:     "email",
-		AdminRole: accountproto.Account_OWNER,
+		Issuer:        "issuer",
+		Subject:       "sub",
+		Audience:      "audience",
+		Expiry:        time.Now().AddDate(100, 0, 0),
+		IssuedAt:      time.Now(),
+		Email:         "email",
+		IsSystemAdmin: true,
 	}
 	ctx := context.TODO()
 	return context.WithValue(ctx, rpc.Key, token)
@@ -84,13 +86,12 @@ func createContextWithToken() context.Context {
 
 func createContextWithTokenRoleUnassigned() context.Context {
 	token := &token.IDToken{
-		Issuer:    "issuer",
-		Subject:   "sub",
-		Audience:  "audience",
-		Expiry:    time.Now().AddDate(100, 0, 0),
-		IssuedAt:  time.Now(),
-		Email:     "email",
-		AdminRole: accountproto.Account_UNASSIGNED,
+		Issuer:   "issuer",
+		Subject:  "sub",
+		Audience: "audience",
+		Expiry:   time.Now().AddDate(100, 0, 0),
+		IssuedAt: time.Now(),
+		Email:    "email",
 	}
 	ctx := context.TODO()
 	return context.WithValue(ctx, rpc.Key, token)
@@ -120,6 +121,8 @@ func createFeatureService(c *gomock.Controller) *FeatureService {
 	at := autoopsclientmock.NewMockClient(c)
 	at.EXPECT().ListProgressiveRollouts(gomock.Any(), gomock.Any()).Return(&autoopsproto.ListProgressiveRolloutsResponse{}, nil).AnyTimes()
 	return &FeatureService{
+		mock.NewMockFlagTriggerStorage(c),
+		mock.NewMockFeatureStorage(c),
 		mysqlmock.NewMockClient(c),
 		a,
 		e,
@@ -146,6 +149,8 @@ func createFeatureServiceNew(c *gomock.Controller) *FeatureService {
 	}
 	a.EXPECT().GetAccountV2(gomock.Any(), gomock.Any()).Return(ar, nil).AnyTimes()
 	return &FeatureService{
+		flagTriggerStorage:    mock.NewMockFlagTriggerStorage(c),
+		featureStorage:        mock.NewMockFeatureStorage(c),
 		mysqlClient:           mysqlmock.NewMockClient(c),
 		accountClient:         a,
 		autoOpsClient:         aoclientmock.NewMockClient(c),

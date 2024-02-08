@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -77,7 +77,7 @@ func (s *MySQLService) MigrateAllMasterSchema(
 	ctx context.Context,
 	req *migrationproto.MigrateAllMasterSchemaRequest,
 ) (*migrationproto.MigrateAllMasterSchemaResponse, error) {
-	_, err := s.checkAdminRole(ctx)
+	_, err := s.checkSystemAdminRole(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func (s *MySQLService) RollbackMasterSchema(
 	ctx context.Context,
 	req *migrationproto.RollbackMasterSchemaRequest,
 ) (*migrationproto.RollbackMasterSchemaResponse, error) {
-	_, err := s.checkAdminRole(ctx)
+	_, err := s.checkSystemAdminRole(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -129,8 +129,8 @@ func (s *MySQLService) RollbackMasterSchema(
 	return &migrationproto.RollbackMasterSchemaResponse{}, nil
 }
 
-func (s *MySQLService) checkAdminRole(ctx context.Context) (*eventproto.Editor, error) {
-	editor, err := role.CheckAdminRole(ctx)
+func (s *MySQLService) checkSystemAdminRole(ctx context.Context) (*eventproto.Editor, error) {
+	editor, err := role.CheckSystemAdminRole(ctx)
 	if err != nil {
 		switch status.Code(err) {
 		case codes.Unauthenticated:

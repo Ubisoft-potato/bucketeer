@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -170,6 +170,14 @@ func (a *AutoOpsRule) DeleteClause(id string) error {
 	return errClauseNotFound
 }
 
+func (a *AutoOpsRule) HasEventRateOps() (bool, error) {
+	clauses, err := a.ExtractOpsEventRateClauses()
+	if err != nil {
+		return false, err
+	}
+	return len(clauses) > 0, nil
+}
+
 func (a *AutoOpsRule) ExtractOpsEventRateClauses() (map[string]*proto.OpsEventRateClause, error) {
 	opsEventRateClauses := map[string]*proto.OpsEventRateClause{}
 	for _, c := range a.Clauses {
@@ -194,6 +202,14 @@ func (a *AutoOpsRule) unmarshalOpsEventRateClause(clause *proto.Clause) (*proto.
 		return c, nil
 	}
 	return nil, nil
+}
+
+func (a *AutoOpsRule) HasScheduleOps() (bool, error) {
+	clauses, err := a.ExtractDatetimeClauses()
+	if err != nil {
+		return false, err
+	}
+	return len(clauses) > 0, nil
 }
 
 func (a *AutoOpsRule) ExtractDatetimeClauses() ([]*proto.DatetimeClause, error) {

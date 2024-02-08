@@ -50,7 +50,8 @@ local-deps:
 	go install go.uber.org/mock/mockgen@v0.1.0; \
 	go install github.com/golang/protobuf/protoc-gen-go@v1.5.2; \
 	go install github.com/nilslice/protolock/...@v0.15.0;
-	go install github.com/mikefarah/yq/v4@v4.28.2
+	go install github.com/mikefarah/yq/v4@v4.28.2;
+	go install -tags 'mysql' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 
 .PHONY: lint
 lint:
@@ -252,13 +253,22 @@ e2e:
 		-environment-namespace=${ENVIRONMENT_NAMESPACE} \
 		-test-id=${TEST_ID}
 
+.PHONY: update-copyright
+update-copyright:
+	./hack/update-copyright/update-copyright.sh
+
+###################
+# Database Migration
+###################
+create-mysql-migration:
+	migrate create -dir pkg/batch/migration/mysql -digits 8 -seq -ext sql $(NAME)
 
 #############################
 # dev container
 #############################
 
 # start minikube
-start-minikube: 
+start-minikube:
 	if [ $$(minikube status | grep -c "minikube start") -eq 1 ]; then \
 		make -C tools/dev setup-minikube; \
 	elif [ $$(minikube status | grep -c "Stopped") -gt 1 ]; then \
@@ -293,7 +303,7 @@ setup-bigquery-vault:
 	make create-bigquery-emulator-tables
 	make enable-vault-transit
 
-# generate tls certificate 
+# generate tls certificate
 generate-tls-certificate:
 	make -C tools/dev generate-tls-certificate
 

@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -108,6 +108,10 @@ func (p *ProgressiveRollout) setClause(c protoiface.MessageV1) error {
 
 func (p *ProgressiveRollout) IsWaiting() bool {
 	return p.Status == autoopsproto.ProgressiveRollout_WAITING
+}
+
+func (p *ProgressiveRollout) IsRunning() bool {
+	return p.Status == autoopsproto.ProgressiveRollout_RUNNING
 }
 
 func (p *ProgressiveRollout) IsStopped() bool {

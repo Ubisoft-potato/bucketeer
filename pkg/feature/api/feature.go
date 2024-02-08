@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	autoopsdomain "github.com/bucketeer-io/bucketeer/pkg/autoops/domain"
+	v2ao "github.com/bucketeer-io/bucketeer/pkg/autoops/storage/v2"
 	experimentdomain "github.com/bucketeer-io/bucketeer/pkg/experiment/domain"
 	"github.com/bucketeer-io/bucketeer/pkg/feature/command"
 	"github.com/bucketeer-io/bucketeer/pkg/feature/domain"
@@ -56,7 +57,9 @@ func (s *FeatureService) GetFeature(
 	req *featureproto.GetFeatureRequest,
 ) (*featureproto.GetFeatureResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_VIEWER, req.EnvironmentNamespace, localizer)
+	_, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_VIEWER,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +112,9 @@ func (s *FeatureService) GetFeatures(
 	req *featureproto.GetFeaturesRequest,
 ) (*featureproto.GetFeaturesResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_VIEWER, req.EnvironmentNamespace, localizer)
+	_, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_VIEWER,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +164,9 @@ func (s *FeatureService) ListFeatures(
 	req *featureproto.ListFeaturesRequest,
 ) (*featureproto.ListFeaturesResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_VIEWER, req.EnvironmentNamespace, localizer)
+	_, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_VIEWER,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -459,7 +466,9 @@ func (s *FeatureService) ListEnabledFeatures(
 	req *featureproto.ListEnabledFeaturesRequest,
 ) (*featureproto.ListEnabledFeaturesResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_VIEWER, req.EnvironmentNamespace, localizer)
+	_, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_VIEWER,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -527,7 +536,9 @@ func (s *FeatureService) CreateFeature(
 	req *featureproto.CreateFeatureRequest,
 ) (*featureproto.CreateFeatureResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -665,7 +676,9 @@ func (s *FeatureService) UpdateFeatureDetails(
 	req *featureproto.UpdateFeatureDetailsRequest,
 ) (*featureproto.UpdateFeatureDetailsResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -939,7 +952,9 @@ func (s *FeatureService) EnableFeature(
 	if err := validateEnableFeatureRequest(req, localizer); err != nil {
 		return nil, err
 	}
-	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -976,7 +991,9 @@ func (s *FeatureService) DisableFeature(
 	if err := validateDisableFeatureRequest(req, localizer); err != nil {
 		return nil, err
 	}
-	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -1034,7 +1051,9 @@ func (s *FeatureService) ArchiveFeature(
 	if err := validateArchiveFeatureRequest(req, features, localizer); err != nil {
 		return nil, err
 	}
-	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -1069,7 +1088,9 @@ func (s *FeatureService) UnarchiveFeature(
 	if err := validateUnarchiveFeatureRequest(req, localizer); err != nil {
 		return nil, err
 	}
-	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -1104,7 +1125,9 @@ func (s *FeatureService) DeleteFeature(
 	if err := validateDeleteFeatureRequest(req, localizer); err != nil {
 		return nil, err
 	}
-	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -1200,6 +1223,13 @@ func (s *FeatureService) updateFeature(
 				)...,
 			)
 			return err
+		}
+		// We must stop the progressive rollout if it contains a `DisableFeatureCommand`
+		switch cmd.(type) {
+		case *featureproto.DisableFeatureCommand:
+			if err := s.stopProgressiveRollout(ctx, tx, environmentNamespace, feature.Id); err != nil {
+				return err
+			}
 		}
 		if err := handler.Handle(ctx, cmd); err != nil {
 			s.logger.Error(
@@ -1312,7 +1342,9 @@ func (s *FeatureService) UpdateFeatureVariations(
 	req *featureproto.UpdateFeatureVariationsRequest,
 ) (*featureproto.UpdateFeatureVariationsResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -1509,7 +1541,9 @@ func (s *FeatureService) UpdateFeatureTargeting(
 	req *featureproto.UpdateFeatureTargetingRequest,
 ) (*featureproto.UpdateFeatureTargetingResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	editor, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_EDITOR, req.EnvironmentNamespace, localizer)
+	editor, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -1631,6 +1665,13 @@ func (s *FeatureService) UpdateFeatureTargeting(
 			return err
 		}
 		for _, cmd := range commands {
+			// We must stop the progressive rollout if it contains a `DisableFeatureCommand`
+			switch cmd.(type) {
+			case *featureproto.DisableFeatureCommand:
+				if err := s.stopProgressiveRollout(ctx, tx, req.EnvironmentNamespace, feature.Id); err != nil {
+					return err
+				}
+			}
 			err = handler.Handle(ctx, cmd)
 			if err != nil {
 				// TODO: same as above. Make it more specific.
@@ -1696,6 +1737,44 @@ func (s *FeatureService) UpdateFeatureTargeting(
 		return nil, dt.Err()
 	}
 	return &featureproto.UpdateFeatureTargetingResponse{}, nil
+}
+
+func (s *FeatureService) stopProgressiveRollout(
+	ctx context.Context,
+	tx mysql.Transaction,
+	environmentNamespace, featureID string) error {
+	storage := v2ao.NewProgressiveRolloutStorage(tx)
+	ids := convToInterfaceSlice([]string{featureID})
+	whereParts := []mysql.WherePart{
+		mysql.NewFilter("environment_namespace", "=", environmentNamespace),
+		mysql.NewInFilter("feature_id", ids),
+	}
+	list, _, _, err := storage.ListProgressiveRollouts(ctx, whereParts, nil, 0, 0)
+	if err != nil {
+		return err
+	}
+	for _, rollout := range list {
+		r := &autoopsdomain.ProgressiveRollout{ProgressiveRollout: rollout}
+		if r.IsWaiting() || r.IsRunning() {
+			if err := r.Stop(autoopsproto.ProgressiveRollout_USER); err != nil {
+				return err
+			}
+			if err := storage.UpdateProgressiveRollout(ctx, r, environmentNamespace); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func convToInterfaceSlice(
+	slice []string,
+) []interface{} {
+	result := make([]interface{}, 0, len(slice))
+	for _, element := range slice {
+		result = append(result, element)
+	}
+	return result
 }
 
 func findFeature(fs []*featureproto.Feature, id string, localizer locale.Localizer) (*featureproto.Feature, error) {
@@ -1948,7 +2027,9 @@ func (s *FeatureService) EvaluateFeatures(
 	req *featureproto.EvaluateFeaturesRequest,
 ) (*featureproto.EvaluateFeaturesResponse, error) {
 	localizer := locale.NewLocalizer(ctx)
-	_, err := s.checkRole(ctx, accountproto.AccountV2_Role_Environment_VIEWER, req.EnvironmentNamespace, localizer)
+	_, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_VIEWER,
+		req.EnvironmentNamespace, localizer)
 	if err != nil {
 		return nil, err
 	}
@@ -2117,11 +2198,9 @@ func (s *FeatureService) CloneFeature(
 	if err := validateCloneFeatureRequest(req, localizer); err != nil {
 		return nil, err
 	}
-	editor, err := s.checkRole(
-		ctx,
-		accountproto.AccountV2_Role_Environment_EDITOR,
-		req.Command.EnvironmentNamespace,
-		localizer,
+	editor, err := s.checkEnvironmentRole(
+		ctx, accountproto.AccountV2_Role_Environment_EDITOR,
+		req.Command.EnvironmentNamespace, localizer,
 	)
 	if err != nil {
 		return nil, err

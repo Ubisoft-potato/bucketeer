@@ -1,4 +1,4 @@
-// Copyright 2023 The Bucketeer Authors.
+// Copyright 2024 The Bucketeer Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import (
 	eventproto "github.com/bucketeer-io/bucketeer/proto/event/domain"
 )
 
-func TestCheckAdminRole(t *testing.T) {
+func TestCheckSystemAdminRole(t *testing.T) {
 	t.Parallel()
 	patterns := []struct {
 		inputCtx    context.Context
@@ -42,18 +42,18 @@ func TestCheckAdminRole(t *testing.T) {
 			expectedErr: ErrUnauthenticated,
 		},
 		{
-			inputCtx:    getContextWithToken(t, &token.IDToken{Email: "test@example.com", AdminRole: accountproto.Account_UNASSIGNED}),
+			inputCtx:    getContextWithToken(t, &token.IDToken{Email: "test@example.com", IsSystemAdmin: false}),
 			expected:    nil,
 			expectedErr: ErrPermissionDenied,
 		},
 		{
-			inputCtx:    getContextWithToken(t, &token.IDToken{Email: "test@example.com", AdminRole: accountproto.Account_OWNER}),
+			inputCtx:    getContextWithToken(t, &token.IDToken{Email: "test@example.com", IsSystemAdmin: true}),
 			expected:    &eventproto.Editor{Email: "test@example.com", IsAdmin: true},
 			expectedErr: nil,
 		},
 	}
 	for _, p := range patterns {
-		editor, err := CheckAdminRole(p.inputCtx)
+		editor, err := CheckSystemAdminRole(p.inputCtx)
 		assert.Equal(t, p.expectedErr, err)
 		assert.Equal(t, p.expected, editor)
 	}
@@ -82,7 +82,7 @@ func TestCheckRole(t *testing.T) {
 		},
 		{
 			desc:              "unauthenticated: account not found",
-			inputCtx:          getContextWithToken(t, &token.IDToken{Email: "test@example.com", AdminRole: accountproto.Account_UNASSIGNED}),
+			inputCtx:          getContextWithToken(t, &token.IDToken{Email: "test@example.com"}),
 			inputRequiredRole: accountproto.AccountV2_Role_Environment_EDITOR,
 			inputGetAccountFunc: func(email string) (*accountproto.AccountV2, error) {
 				return nil, status.Error(codes.NotFound, "")
@@ -92,7 +92,7 @@ func TestCheckRole(t *testing.T) {
 		},
 		{
 			desc:              "internalError",
-			inputCtx:          getContextWithToken(t, &token.IDToken{Email: "test@example.com", AdminRole: accountproto.Account_UNASSIGNED}),
+			inputCtx:          getContextWithToken(t, &token.IDToken{Email: "test@example.com"}),
 			inputRequiredRole: accountproto.AccountV2_Role_Environment_EDITOR,
 			inputGetAccountFunc: func(email string) (*accountproto.AccountV2, error) {
 				return nil, status.Error(codes.Internal, "")
@@ -102,7 +102,7 @@ func TestCheckRole(t *testing.T) {
 		},
 		{
 			desc:              "permissionDenied",
-			inputCtx:          getContextWithToken(t, &token.IDToken{Email: "test@example.com", AdminRole: accountproto.Account_UNASSIGNED}),
+			inputCtx:          getContextWithToken(t, &token.IDToken{Email: "test@example.com"}),
 			inputRequiredRole: accountproto.AccountV2_Role_Environment_EDITOR,
 			inputGetAccountFunc: func(email string) (*accountproto.AccountV2, error) {
 				resp := &accountproto.GetAccountV2ByEnvironmentIDResponse{
@@ -124,7 +124,7 @@ func TestCheckRole(t *testing.T) {
 		},
 		{
 			desc:              "success",
-			inputCtx:          getContextWithToken(t, &token.IDToken{Email: "test@example.com", AdminRole: accountproto.Account_UNASSIGNED}),
+			inputCtx:          getContextWithToken(t, &token.IDToken{Email: "test@example.com"}),
 			inputRequiredRole: accountproto.AccountV2_Role_Environment_EDITOR,
 			inputGetAccountFunc: func(email string) (*accountproto.AccountV2, error) {
 				resp := &accountproto.GetAccountV2ByEnvironmentIDResponse{
@@ -146,7 +146,9 @@ func TestCheckRole(t *testing.T) {
 		},
 	}
 	for _, p := range patterns {
-		editor, err := CheckRole(p.inputCtx, p.inputRequiredRole, env, p.inputGetAccountFunc)
+		editor, err := CheckEnvironmentRole(
+			p.inputCtx, p.inputRequiredRole,
+			env, p.inputGetAccountFunc)
 		assert.Equal(t, p.expectedErr, err)
 		assert.Equal(t, p.expected, editor)
 	}
@@ -174,7 +176,7 @@ func TestCheckOrganizationRole(t *testing.T) {
 		},
 		{
 			desc:              "unauthenticated: account not found",
-			inputCtx:          getContextWithToken(t, &token.IDToken{Email: "test@example.com", AdminRole: accountproto.Account_UNASSIGNED}),
+			inputCtx:          getContextWithToken(t, &token.IDToken{Email: "test@example.com"}),
 			inputRequiredRole: accountproto.AccountV2_Role_Organization_MEMBER,
 			inputGetAccountFunc: func(email string) (*accountproto.GetAccountV2Response, error) {
 				return nil, status.Error(codes.NotFound, "")
@@ -184,7 +186,7 @@ func TestCheckOrganizationRole(t *testing.T) {
 		},
 		{
 			desc:              "internalError",
-			inputCtx:          getContextWithToken(t, &token.IDToken{Email: "test@example.com", AdminRole: accountproto.Account_UNASSIGNED}),
+			inputCtx:          getContextWithToken(t, &token.IDToken{Email: "test@example.com"}),
 			inputRequiredRole: accountproto.AccountV2_Role_Organization_MEMBER,
 			inputGetAccountFunc: func(email string) (*accountproto.GetAccountV2Response, error) {
 				return nil, status.Error(codes.Internal, "")
@@ -194,7 +196,7 @@ func TestCheckOrganizationRole(t *testing.T) {
 		},
 		{
 			desc:              "permissionDenied",
-			inputCtx:          getContextWithToken(t, &token.IDToken{Email: "test@example.com", AdminRole: accountproto.Account_UNASSIGNED}),
+			inputCtx:          getContextWithToken(t, &token.IDToken{Email: "test@example.com"}),
 			inputRequiredRole: accountproto.AccountV2_Role_Organization_ADMIN,
 			inputGetAccountFunc: func(email string) (*accountproto.GetAccountV2Response, error) {
 				return &accountproto.GetAccountV2Response{
@@ -206,7 +208,7 @@ func TestCheckOrganizationRole(t *testing.T) {
 		},
 		{
 			desc:              "success",
-			inputCtx:          getContextWithToken(t, &token.IDToken{Email: "test@example.com", AdminRole: accountproto.Account_UNASSIGNED}),
+			inputCtx:          getContextWithToken(t, &token.IDToken{Email: "test@example.com"}),
 			inputRequiredRole: accountproto.AccountV2_Role_Organization_ADMIN,
 			inputGetAccountFunc: func(email string) (*accountproto.GetAccountV2Response, error) {
 				return &accountproto.GetAccountV2Response{
