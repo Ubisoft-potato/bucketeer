@@ -41,9 +41,21 @@ env:
 tls:
   service:
     secret: bucketeer-service-cert
+  issuer:
+    secret: bucketeer-service-cert
+    cert:
 
 serviceToken:
   token:
+
+oauth:
+  key:
+    secret: bucketeer-oauth-key
+    public:
+  clientId: bucketeer
+  clientSecret: oauth-client-secret
+  redirectUrls: https://google.com
+  issuer: https://accounts.google.com
 
 cronjob:
   successfulJobsHistoryLimit: 1

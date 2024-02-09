@@ -263,6 +263,12 @@ update-copyright:
 create-mysql-migration:
 	migrate create -dir pkg/batch/migration/mysql -digits 8 -seq -ext sql $(NAME)
 
+migrate-up:
+	ENDPOINT="https://web-gateway.bucketeer.org/bucketeer.batch.BatchService/Migrate" \
+	TOKEN=`cat tools/dev/cert/service-token` \
+	RES=`curl -X POST -m 3600 --cacert tools/dev/cert/tls.crt -d '{"Direction":"UP", "steps": 1}' -H "authorization: bearer $$TOKEN" -H "Content-Type: application/json" $$ENDPOINT` \
+	; echo "result: $$RES"
+
 #############################
 # dev container
 #############################
