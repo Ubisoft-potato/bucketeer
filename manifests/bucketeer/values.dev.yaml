@@ -110,3 +110,7 @@ web-gateway:
       secret: bucketeer-service-cert
   ingress:
     host: web-gateway.bucketeer.org
+
+
+migration:
+  webGatewayAddress: https://web-gateway.default.svc.cluster.local:9000

@@ -2,3 +2,6 @@ global:
   image:
     tag: v0.3.0 # x-release-please-version
     imagePullSecrets:
+
+migration:
+  webGatewayAddress: https://web-gateway.default.svc.cluster.local:9000
