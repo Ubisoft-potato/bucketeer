@@ -11,25 +11,28 @@ spec:
       secret:
         secretName: {{ template "service-token-secret" . }}
   initContainers:
-  - name: check-batch-service
-    image: curlimages/curl:8.1.2
-    volumeMounts:
-      - mountPath: /usr/local/service-token
-        name: service-token-secret
-    env:
-      - name: WEB_GATEWAY_ADDRESS
-        value: "{{ $.Values.migration.webGatewayAddress }}"
-    command:
-      - /bin/sh
-    args:
-      - -c
-      - |
-        ENDPOINT="${WEB_GATEWAY_ADDRESS}/bucketeer.batch.BatchService/CurrentMigrationVersion"
-        TOKEN=`cat /usr/local/service-token/token`
-        RES=`curl -X GET -m 3600 -k -H "authorization: bearer ${TOKEN}" -H "Content-Type: application/json" -s -o /dev/null -w '%{http_code}\\n' ${ENDPOINT}`
-        echo "result: ${RES}"
+    - name: check-batch-service
+      image: curlimages/curl:8.1.2
+      volumeMounts:
+        - mountPath: /usr/local/service-token
+          name: service-token-secret
+      env:
+        - name: WEB_GATEWAY_ADDRESS
+          value: "{{ $.Values.migration.webGatewayAddress }}"
+      command:
+        - /bin/sh
+      args:
+        - -c
+        - |
+          ENDPOINT="${WEB_GATEWAY_ADDRESS}/bucketeer.batch.BatchService/CurrentMigrationVersion"
+          TOKEN=`cat /usr/local/service-token/token`
+          RES=`curl -X POST -m 3600 -k -H "authorization: bearer ${TOKEN}" -H "Content-Type: application/json" -s -o /dev/null -w '%{http_code}\\n' ${ENDPOINT}`
+          echo "result: ${RES}"
   containers:
     - name: migration
+      volumeMounts:
+        - mountPath: /usr/local/service-token
+          name: service-token-secret
       image: curlimages/curl:8.1.2
       env:
         - name: WEB_GATEWAY_ADDRESS

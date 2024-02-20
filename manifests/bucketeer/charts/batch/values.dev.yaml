@@ -6,13 +6,13 @@ global:
 env:
   project: bucketeer-test
   profile: false
-  gcpEnabled: false 
+  gcpEnabled: false
   mysqlUser: bucketeer
   mysqlPass: bucketeer
   mysqlHost: localenv-mysql-headless.default.svc.cluster.local
   mysqlPort: 3306
   mysqlDbName: bucketeer
-  pubsubEmulatorHost: localenv-pubsub.default.svc.cluster.local:8089 
+  pubsubEmulatorHost: localenv-pubsub.default.svc.cluster.local:8089
   notificationService: localhost:9001
   environmentService: localhost:9001
   autoOpsService: localhost:9001
@@ -62,42 +62,45 @@ cronjob:
   failedJobsHistoryLimit: 1
   webGatewayAddress: https://web-gateway.default.svc.cluster.local:9000
   jobs:
-    - name: experiment-status-updater
-      jobId: ExperimentStatusUpdater
-      schedule: "* * * * *"
-    - name: experiment-running-watcher
-      jobId: ExperimentRunningWatcher
-      schedule: "0 1 * * *"
-    - name: feature-stale-watcher
-      jobId: FeatureStaleWatcher
-      schedule: "0 1 * * MON"
-    - name: mau-count-watcher
-      jobId: MauCountWatcher
-      schedule: "0 1 1 * *"
-    - name: ops-datetime-watcher
-      jobId: DatetimeWatcher
-      schedule: "* * * * *"
-    - name: ops-event-count-watcher
-      jobId: EventCountWatcher
-      schedule: "* * * * *"
-    - name: ops-progressive-rollout-watcher
-      jobId: ProgressiveRolloutWatcher
-      schedule: "* * * * *"
-    - name: domain-event-informer
-      jobId: DomainEventInformer
-      schedule: "* * * * *"
-    - name: redis-counter-deleter
-      jobId: RedisCounterDeleter
-      schedule: "0 0 * * *"
-    - name: experiment-calculator
-      jobId: ExperimentCalculator
-      schedule: "* * * * *"
-    - name: mau-summarizer
-      jobId: MauSummarizer
-      schedule: "30 0 * * *"
-    - name: mau-partition-deleter
-      jobId: MauPartitionDeleter
-      schedule: "0 2 1 * *"
-    - name: mau-partition-creator
-      jobId: MauPartitionCreator
-      schedule: "0 2 2 * *"
+  # - name: experiment-status-updater
+  #   jobId: ExperimentStatusUpdater
+  #   schedule: "* * * * *"
+  # - name: experiment-running-watcher
+  #   jobId: ExperimentRunningWatcher
+  #   schedule: "0 1 * * *"
+  # - name: feature-stale-watcher
+  #   jobId: FeatureStaleWatcher
+  #   schedule: "0 1 * * MON"
+  # - name: mau-count-watcher
+  #   jobId: MauCountWatcher
+  #   schedule: "0 1 1 * *"
+  # - name: ops-datetime-watcher
+  #   jobId: DatetimeWatcher
+  #   schedule: "* * * * *"
+  # - name: ops-event-count-watcher
+  #   jobId: EventCountWatcher
+  #   schedule: "* * * * *"
+  # - name: ops-progressive-rollout-watcher
+  #   jobId: ProgressiveRolloutWatcher
+  #   schedule: "* * * * *"
+  # - name: domain-event-informer
+  #   jobId: DomainEventInformer
+  #   schedule: "* * * * *"
+  # - name: redis-counter-deleter
+  #   jobId: RedisCounterDeleter
+  #   schedule: "0 0 * * *"
+  # - name: experiment-calculator
+  #   jobId: ExperimentCalculator
+  #   schedule: "* * * * *"
+  # - name: mau-summarizer
+  #   jobId: MauSummarizer
+  #   schedule: "30 0 * * *"
+  # - name: mau-partition-deleter
+  #   jobId: MauPartitionDeleter
+  #   schedule: "0 2 1 * *"
+  # - name: mau-partition-creator
+  #   jobId: MauPartitionCreator
+  #   schedule: "0 2 2 * *"
+
+migration:
+  webGatewayAddress: https://web-gateway.default.svc.cluster.local:9000
